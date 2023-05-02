@@ -6,7 +6,7 @@
 #define MAX_VERSION 12
 #define BUFFER_SIZE qrcodegen_BUFFER_LEN_FOR_VERSION(MAX_VERSION)
 
-const NEW_STRING(text, "What the fuck did you just fucking say about me, you little bitch? I'll have you know I graduated top of my class in the Navy Seals, and I've been involved in numerous secret raids on Al-Quaeda, and I have over 300 confirmed kills. I am trained in gorilla warfare and I'm the top sniper in the entire US armed forces. You are nothing to me but just another target. I");
+const NEW_STRING(text, "What the fuck did you just fucking say about me, you little bitch? I'll have you know I graduated top of my class in the Navy Seals, and I've been involved in numerous secret raids on Al-Quaeda, and I have over 300 confirmed kills.");
 
 struct
 {
@@ -24,7 +24,8 @@ struct
     };
     struct
     {
-      uint8_t fine_y, fine_x;
+      uint8_t fine_y;
+      uint16_t qr_adr;
       uint8_t pixel_row;
     };
   };
@@ -67,14 +68,17 @@ void main()
     {
       for (data.coarse_x = 0; data.coarse_x < data.size; data.coarse_x += 8)
       {
+        // FIXME this will read out of bounds for the last row of tiles
         for (data.fine_y = data.coarse_y; data.fine_y < data.coarse_y + 8; ++data.fine_y)
         {
-          data.pixel_row = 0;
-          for (data.fine_x = data.coarse_x; data.fine_x < data.coarse_x + 8; ++data.fine_x)
-          {
-            data.pixel_row <<= 1;
-            data.pixel_row |= qrcodegen_getModule(data.qr, data.fine_x, data.fine_y);
-          }
+          data.qr_adr = data.fine_y * data.size;
+          data.qr_adr += data.coarse_x;
+          data.qr_adr >>= 3;
+          ++data.qr_adr;
+          data.pixel_row = data.qr[data.qr_adr];
+          data.pixel_row = (data.pixel_row & 0xF0) >> 4 | (data.pixel_row & 0x0F) << 4;
+          data.pixel_row = (data.pixel_row & 0xCC) >> 2 | (data.pixel_row & 0x33) << 2;
+          data.pixel_row = (data.pixel_row & 0xAA) >> 1 | (data.pixel_row & 0x55) << 1;
           vram_put(data.pixel_row);
         }
         vram_fill(0x00, 8);

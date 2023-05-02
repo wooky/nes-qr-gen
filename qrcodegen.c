@@ -372,7 +372,7 @@ static const int PENALTY_N2 = 3;
 static const int PENALTY_N3 = 40;
 static const int PENALTY_N4 = 10;
 
-
+uint8_t paddedQrSize;
 
 
 
@@ -614,6 +614,12 @@ static uint8_t reedSolomonMultiply(uint8_t x, uint8_t y) {
 static void initializeFunctionModules(int version, uint8_t qrcode[]) {
 
  int qrsize = version * 4 + 17;
+ paddedQrSize = qrsize;
+ if (paddedQrSize & 0x7 != 0)
+ {
+  paddedQrSize = (paddedQrSize & ~7) + 8;
+ }
+ 
  memset(qrcode, 0, (size_t)((qrsize * qrsize + 7) / 8 + 1) * sizeof(qrcode[0]));
  qrcode[0] = (uint8_t)qrsize;
 
@@ -954,7 +960,7 @@ _Bool qrcodegen_getModule(const uint8_t qrcode[], int x, int y) {
 static _Bool getModuleBounded(const uint8_t qrcode[], int x, int y) {
  int qrsize = qrcode[0];
  ((21 <= qrsize && qrsize <= 177 && 0 <= x && x < qrsize && 0 <= y && y < qrsize)? (void)0 : __afailed(".\\qrcodegen.orig.c", 775));
- { int index = y * qrsize + x;
+ { int index = y * paddedQrSize + x;
  return getBit(qrcode[(index >> 3) + 1], index & 7);
 } }
 
@@ -963,7 +969,7 @@ static _Bool getModuleBounded(const uint8_t qrcode[], int x, int y) {
 static void setModuleBounded(uint8_t qrcode[], int x, int y, _Bool isDark) {
  int qrsize = qrcode[0];
  ((21 <= qrsize && qrsize <= 177 && 0 <= x && x < qrsize && 0 <= y && y < qrsize)? (void)0 : __afailed(".\\qrcodegen.orig.c", 784));
- { int index = y * qrsize + x;
+ { int index = y * paddedQrSize + x;
  { int bitIndex = index & 7;
  { int byteIndex = (index >> 3) + 1;
  if (isDark)
