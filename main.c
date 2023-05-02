@@ -5,9 +5,9 @@
 #define NEW_STRING(var, val) unsigned char var[sizeof(val)-1] = val
 const NEW_STRING(text, "What the fuck did you just fucking say about me, you little bitch? I'll have you know I graduated top of my class in the Navy Seals, and I've been involved in numerous secret raids on Al-Quaeda, and I have over 300 confirmed kills.");
 
-extern uint8_t tempBuffer[1];
+extern uint8_t tempBuffer[];
 extern size_t dataLen;
-extern uint8_t qrcode[1];
+extern uint8_t qrcode[];
 extern enum qrcodegen_Ecc ecl;
 extern enum qrcodegen_Mask mask;
 extern bool boostEcl;
