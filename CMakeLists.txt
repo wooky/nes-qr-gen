@@ -5,8 +5,7 @@ find_program(CL65 NAMES cl65 REQUIRED)
 set(CMAKE_C_COMPILER ${CL65})
 project(qrdemo LANGUAGES C ASM)
 
-# add_compile_options(-Werror -c -t none -Oirs)
-add_compile_options(-c -t none -Oirs $<$<CONFIG:Debug>:-g>)
+add_compile_options(-Werror -c -t none -Oirs $<$<CONFIG:Debug>:-g>)
 set(CMAKE_C_COMPILE_OBJECT "<CMAKE_C_COMPILER> <DEFINES> <INCLUDES> <FLAGS> -o <OBJECT> -l <OBJECT>.s -T <SOURCE>")
 add_link_options(
   -C "${CMAKE_CURRENT_SOURCE_DIR}/mapper.cfg"

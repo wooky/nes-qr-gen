@@ -3,15 +3,17 @@
 #include <string.h>
 
 #define NEW_STRING(var, val) unsigned char var[sizeof(val)-1] = val
-#define MAX_VERSION 12
-#define BUFFER_SIZE qrcodegen_BUFFER_LEN_FOR_VERSION(MAX_VERSION)
-
 const NEW_STRING(text, "What the fuck did you just fucking say about me, you little bitch? I'll have you know I graduated top of my class in the Navy Seals, and I've been involved in numerous secret raids on Al-Quaeda, and I have over 300 confirmed kills.");
+
+extern uint8_t tempBuffer[1];
+extern size_t dataLen;
+extern uint8_t qrcode[1];
+extern enum qrcodegen_Ecc ecl;
+extern enum qrcodegen_Mask mask;
+extern bool boostEcl;
 
 struct
 {
-  uint8_t qr[BUFFER_SIZE];
-  uint8_t dataAndTemp[BUFFER_SIZE];
   uint8_t size;
   uint8_t coarse_y, coarse_x;
   
@@ -34,8 +36,12 @@ struct
 
 void main()
 {
-  memcpy(data.dataAndTemp, text, sizeof(text));
-  data.state = qrcodegen_encodeBinary(data.dataAndTemp, sizeof(text), data.qr, qrcodegen_Ecc_LOW, 1, MAX_VERSION, qrcodegen_Mask_0, false);
+  memcpy(tempBuffer, text, sizeof(text));
+  dataLen = sizeof(text);
+  ecl = qrcodegen_Ecc_LOW;
+  mask = qrcodegen_Mask_0;
+  boostEcl = false;
+  data.state = qrcodegen_encodeBinary();
   if (!data.state)
   {
     pal_col(0, 0x16);
@@ -45,7 +51,7 @@ void main()
     pal_col(0, 0x30);
     vram_adr(0x0010);
     vram_fill(0xff, 8);
-    data.size = qrcodegen_getSize(data.qr);
+    data.size = qrcodegen_getSize();
     // round to next multiple of 8
     if (data.size != 0)
     {
@@ -75,7 +81,7 @@ void main()
           data.qr_adr += data.coarse_x;
           data.qr_adr >>= 3;
           ++data.qr_adr;
-          data.pixel_row = data.qr[data.qr_adr];
+          data.pixel_row = qrcode[data.qr_adr];
           data.pixel_row = (data.pixel_row & 0xF0) >> 4 | (data.pixel_row & 0x0F) << 4;
           data.pixel_row = (data.pixel_row & 0xCC) >> 2 | (data.pixel_row & 0x33) << 2;
           data.pixel_row = (data.pixel_row & 0xAA) >> 1 | (data.pixel_row & 0x55) << 1;
@@ -93,6 +99,3 @@ void main()
   }
   
 }
-
-// idfk
-size_t __fastcall__ write () { return 0; }
