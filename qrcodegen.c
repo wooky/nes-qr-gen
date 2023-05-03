@@ -134,26 +134,98 @@ enum qrcodegen_Ecc ecl;
 enum qrcodegen_Mask mask;
 bool boostEcl;
 
-static size_t bitLength;
-static int bitLen;
-static uint8_t version;
-static uint8_t alignPatPos[7];
+static struct
+{
+	struct
+	{
+		size_t bitLength;
+		int bitLen;
+		uint8_t version;
+		uint8_t i;
+		union
+		{
+			struct {
+				int dataUsedBits;
+				int dataCapacityBits;
+				int terminatorBits;
+				uint8_t padByte;
+				size_t j;
+				int bit;
+			};
+			struct {
+				uint16_t minPenalty;
+				uint16_t penalty;
+				enum qrcodegen_Mask msk;
+			};
+		};
+	} l0;
+	struct {
+		uint8_t alignPatPos[7];
+		int i, j, k;
+		uint8_t qrsize;
+		int numAlign;
+		union
+		{
+			struct
+			{
+				uint8_t numBlocks;
+				uint8_t blockEccLen;
+				int rawCodewords;
+				int dataLen;
+				int numShortBlocks;
+				int shortBlockDataLen;
+				const uint8_t *dat;
+				uint8_t rsdiv[qrcodegen_REED_SOLOMON_DEGREE_MAX];
+				int datLen;
+				uint8_t *ecc;
+			};
+			struct {
+				int8_t dy, dx;
+				uint16_t bits;
+				int rem;
+			};
+		};
+	} l1;
+	struct
+	{
+		int i, j;
+		union {
+			struct {
+				int8_t ecc_codeword;
+				int8_t num_error_correction;
+			};
+			uint8_t root;
+			uint8_t factor;
+		};
+	} l2;
+	struct {
+		int i;
+		union {
+			struct {
+				int result;
+				int numAlign;
+			};
+			uint8_t z;
+		};
+	} l3;
+} d;
 
 /*---- High-level QR Code encoding functions ----*/
 
 // Public function - see documentation comment in header file.
+// NES-QR-DEMO: l0 function
 bool qrcodegen_encodeBinary() {
-	bitLength = dataLen * 8;
+	d.l0.bitLength = dataLen * 8;
 	return qrcodegen_encodeSegmentsAdvanced();
 }
 
 
 // Appends the given number of low-order bits of the given value to the given byte-based
 // bit buffer, increasing the bit length. Requires 0 <= numBits <= 16 and val < 2^numBits.
+// NES-QR-DEMO: l1 function
 testable void appendBitsToQrcode(uint16_t val, uint8_t numBits) {
-	int i;
-	for (i = numBits - 1; i >= 0; i--, bitLen++)
-		qrcode[bitLen >> 3] |= ((val >> i) & 1) << (7 - (bitLen & 7));
+	for (d.l1.i = numBits - 1; d.l1.i >= 0; d.l1.i--, d.l0.bitLen++)
+		qrcode[d.l0.bitLen >> 3] |= ((val >> d.l1.i) & 1) << (7 - (d.l0.bitLen & 7));
 }
 
 
@@ -161,51 +233,49 @@ testable void appendBitsToQrcode(uint16_t val, uint8_t numBits) {
 /*---- Low-level QR Code encoding functions ----*/
 
 // Public function - see documentation comment in header file.
+// NES-QR-DEMO: l0 function
 bool qrcodegen_encodeSegmentsAdvanced() {
 	// Find the minimal version number to use
-	int dataUsedBits, i, dataCapacityBits, terminatorBits;
-	uint8_t padByte;
-	for (version = MIN_VERSION; ; version++) {
-		int dataCapacityBits = getNumDataCodewords(ecl) * 8;  // Number of data bits available
-		dataUsedBits = getTotalBits();
-		if (dataUsedBits != LENGTH_OVERFLOW && dataUsedBits <= dataCapacityBits)
+	for (d.l0.version = MIN_VERSION; ; d.l0.version++) {
+		d.l0.dataCapacityBits = getNumDataCodewords(ecl) * 8;  // Number of data bits available
+		d.l0.dataUsedBits = getTotalBits();
+		if (d.l0.dataUsedBits != LENGTH_OVERFLOW && d.l0.dataUsedBits <= d.l0.dataCapacityBits)
 			break;  // This version number is found to be suitable
-		if (version >= MAX_VERSION) {  // All versions in the range could not fit the given data
+		if (d.l0.version >= MAX_VERSION) {  // All versions in the range could not fit the given data
 			qrcode[0] = 0;  // Set size to invalid value for safety
 			return false;
 		}
 	}
 	
 	// Increase the error correction level while the data still fits in the current version number
-	for (i = (int)qrcodegen_Ecc_MEDIUM; i <= (int)qrcodegen_Ecc_HIGH; i++) {  // From low to high
-		if (boostEcl && dataUsedBits <= getNumDataCodewords((enum qrcodegen_Ecc)i) * 8)
-			ecl = (enum qrcodegen_Ecc)i;
+	for (d.l0.i = (int)qrcodegen_Ecc_MEDIUM; d.l0.i <= (int)qrcodegen_Ecc_HIGH; d.l0.i++) {  // From low to high
+		if (boostEcl && d.l0.dataUsedBits <= getNumDataCodewords((enum qrcodegen_Ecc)d.l0.i) * 8)
+			ecl = (enum qrcodegen_Ecc)d.l0.i;
 	}
 	
 	// Concatenate all segments to create the data bit string
-	memset(qrcode, 0, (size_t)qrcodegen_BUFFER_LEN_FOR_VERSION(version) * sizeof(qrcode[0]));
-	bitLen = 0;
+	memset(qrcode, 0, (size_t)qrcodegen_BUFFER_LEN_FOR_VERSION(d.l0.version) * sizeof(qrcode[0]));
+	d.l0.bitLen = 0;
 	{
-		int j;
 		appendBitsToQrcode((unsigned int)qrcodegen_Mode_BYTE, 4);
 		appendBitsToQrcode((unsigned int)dataLen, numCharCountBits());
-		for (j = 0; j < bitLength; j++) {
-			int bit = (tempBuffer[j >> 3] >> (7 - (j & 7))) & 1;
-			appendBitsToQrcode((unsigned int)bit, 1);
+		for (d.l0.j = 0; d.l0.j < d.l0.bitLength; d.l0.j++) {
+			d.l0.bit = (tempBuffer[d.l0.j >> 3] >> (7 - (d.l0.j & 7))) & 1;
+			appendBitsToQrcode((unsigned int)d.l0.bit, 1);
 		}
 	}
 	
 	// Add terminator and pad up to a byte if applicable
-	dataCapacityBits = getNumDataCodewords(ecl) * 8;
-	terminatorBits = dataCapacityBits - bitLen;
-	if (terminatorBits > 4)
-		terminatorBits = 4;
-	appendBitsToQrcode(0, terminatorBits);
-	appendBitsToQrcode(0, (8 - bitLen % 8) % 8);
+	d.l0.dataCapacityBits = getNumDataCodewords(ecl) * 8;
+	d.l0.terminatorBits = d.l0.dataCapacityBits - d.l0.bitLen;
+	if (d.l0.terminatorBits > 4)
+		d.l0.terminatorBits = 4;
+	appendBitsToQrcode(0, d.l0.terminatorBits);
+	appendBitsToQrcode(0, (8 - d.l0.bitLen % 8) % 8);
 	
 	// Pad with alternating bytes until data capacity is reached
-	for (padByte = 0xEC; bitLen < dataCapacityBits; padByte ^= 0xEC ^ 0x11)
-		appendBitsToQrcode(padByte, 8);
+	for (d.l0.padByte = 0xEC; d.l0.bitLen < d.l0.dataCapacityBits; d.l0.padByte ^= 0xEC ^ 0x11)
+		appendBitsToQrcode(d.l0.padByte, 8);
 	
 	// Compute ECC, draw modules
 	addEccAndInterleave();
@@ -216,18 +286,17 @@ bool qrcodegen_encodeSegmentsAdvanced() {
 	
 	// Do masking
 	if (mask == qrcodegen_Mask_AUTO) {  // Automatically choose best mask
-		uint16_t minPenalty = INT16_MAX;
-		for (i = 0; i < 8; i++) {
-			uint16_t penalty;
-			enum qrcodegen_Mask msk = (enum qrcodegen_Mask)i;
-			applyMask(msk);
-			drawFormatBits(msk);
-			penalty = getPenaltyScore();
-			if (penalty < minPenalty) {
-				mask = msk;
-				minPenalty = penalty;
+		d.l0.minPenalty = INT16_MAX;
+		for (d.l0.i = 0; d.l0.i < 8; d.l0.i++) {
+			d.l0.msk = (enum qrcodegen_Mask)d.l0.i;
+			applyMask(d.l0.msk);
+			drawFormatBits(d.l0.msk);
+			d.l0.penalty = getPenaltyScore();
+			if (d.l0.penalty < d.l0.minPenalty) {
+				mask = d.l0.msk;
+				d.l0.minPenalty = d.l0.penalty;
 			}
-			applyMask(msk);  // Undoes the mask due to XOR
+			applyMask(d.l0.msk);  // Undoes the mask due to XOR
 		}
 	}
 	applyMask(mask);  // Apply the final choice of mask
@@ -243,60 +312,61 @@ bool qrcodegen_encodeSegmentsAdvanced() {
 // bytes from the blocks and stores them in the result array. data[0 : dataLen] contains
 // the input data. data[dataLen : rawCodewords] is used as a temporary work area and will
 // be clobbered by this function. The final answer is stored in result[0 : rawCodewords].
+// NES-QR-DEMO: l1 function
 testable void addEccAndInterleave() {
 	// Calculate parameter numbers
-	uint8_t numBlocks = NUM_ERROR_CORRECTION_BLOCKS[ecl][version];
-	uint8_t blockEccLen = ECC_CODEWORDS_PER_BLOCK  [ecl][version];
-	int rawCodewords = getNumRawDataModules() / 8;
-	int dataLen = getNumDataCodewords(ecl);
-	int numShortBlocks = numBlocks - rawCodewords % numBlocks;
-	int shortBlockDataLen = rawCodewords / numBlocks - blockEccLen;
-	const uint8_t *dat;
-	int i;
+	d.l1.numBlocks = NUM_ERROR_CORRECTION_BLOCKS[ecl][d.l0.version];
+	d.l1.blockEccLen = ECC_CODEWORDS_PER_BLOCK  [ecl][d.l0.version];
+	d.l1.rawCodewords = getNumRawDataModules() / 8;
+	d.l1.dataLen = getNumDataCodewords(ecl);
+	d.l1.numShortBlocks = d.l1.numBlocks - d.l1.rawCodewords % d.l1.numBlocks;
+	d.l1.shortBlockDataLen = d.l1.rawCodewords / d.l1.numBlocks - d.l1.blockEccLen;
 	
 	// Split data into blocks, calculate ECC, and interleave
 	// (not concatenate) the bytes into a single sequence
-	uint8_t rsdiv[qrcodegen_REED_SOLOMON_DEGREE_MAX];
-	reedSolomonComputeDivisor(blockEccLen, rsdiv);
-	dat = qrcode;
-	for (i = 0; i < numBlocks; i++) {
-		int datLen = shortBlockDataLen + (i < numShortBlocks ? 0 : 1);
-		uint8_t *ecc = &qrcode[dataLen];  // Temporary storage
-		int j, k;
-		reedSolomonComputeRemainder(dat, datLen, rsdiv, blockEccLen, ecc);
-		for (j = 0, k = i; j < datLen; j++, k += numBlocks) {  // Copy data
-			if (j == shortBlockDataLen)
-				k -= numShortBlocks;
-			tempBuffer[k] = dat[j];
+	reedSolomonComputeDivisor(d.l1.blockEccLen, d.l1.rsdiv);
+	d.l1.dat = qrcode;
+	for (d.l1.i = 0; d.l1.i < d.l1.numBlocks; d.l1.i++) {
+		d.l1.datLen = d.l1.shortBlockDataLen + (d.l1.i < d.l1.numShortBlocks ? 0 : 1);
+		d.l1.ecc = &qrcode[d.l1.dataLen];  // Temporary storage
+		reedSolomonComputeRemainder(d.l1.dat, d.l1.datLen, d.l1.rsdiv, d.l1.blockEccLen, d.l1.ecc);
+		for (d.l1.j = 0, d.l1.k = d.l1.i; d.l1.j < d.l1.datLen; d.l1.j++, d.l1.k += d.l1.numBlocks) {  // Copy data
+			if (d.l1.j == d.l1.shortBlockDataLen)
+				d.l1.k -= d.l1.numShortBlocks;
+			tempBuffer[d.l1.k] = d.l1.dat[d.l1.j];
 		}
-		for (j = 0, k = dataLen + i; j < blockEccLen; j++, k += numBlocks)  // Copy ECC
-			tempBuffer[k] = ecc[j];
-		dat += datLen;
+		for (d.l1.j = 0, d.l1.k = d.l1.dataLen + d.l1.i; d.l1.j < d.l1.blockEccLen; d.l1.j++, d.l1.k += d.l1.numBlocks)  // Copy ECC
+			tempBuffer[d.l1.k] = d.l1.ecc[d.l1.j];
+		d.l1.dat += d.l1.datLen;
 	}
 }
 
 
 // Returns the number of 8-bit codewords that can be used for storing data (not ECC),
 // for the given version number and error correction level. The result is in the range [9, 2956].
+// NES-QR-DEMO: l2 function
 testable int getNumDataCodewords(enum qrcodegen_Ecc ecl) {
+	d.l2.ecc_codeword = ECC_CODEWORDS_PER_BLOCK[ecl][d.l0.version];
+	d.l2.num_error_correction = NUM_ERROR_CORRECTION_BLOCKS[ecl][d.l0.version];
 	return getNumRawDataModules() / 8
-		- ECC_CODEWORDS_PER_BLOCK    [ecl][version]
-		* NUM_ERROR_CORRECTION_BLOCKS[ecl][version];
+		- d.l2.ecc_codeword
+		* d.l2.num_error_correction;
 }
 
 
 // Returns the number of data bits that can be stored in a QR Code of the given version number, after
-// all function modules are excluded. This includes remainder bits, so it might not be a multiple of 8.
+// all function modules are excluded.l0. This includes remainder bits, so it might not be a multiple of 8.
 // The result is in the range [208, 29648]. This could be implemented as a 40-entry lookup table.
+// NES-QR-DEMO: l3 function
 testable int getNumRawDataModules() {
-	int result = (16 * version + 128) * version + 64;
-	if (version >= 2) {
-		int numAlign = version / 7 + 2;
-		result -= (25 * numAlign - 10) * numAlign - 55;
-		if (version >= 7)
-			result -= 36;
+	d.l3.result = (16 * d.l0.version + 128) * d.l0.version + 64;
+	if (d.l0.version >= 2) {
+		d.l3.numAlign = d.l0.version / 7 + 2;
+		d.l3.result -= (25 * d.l3.numAlign - 10) * d.l3.numAlign - 55;
+		if (d.l0.version >= 7)
+			d.l3.result -= 36;
 	}
-	return result;
+	return d.l3.result;
 }
 
 
@@ -305,9 +375,8 @@ testable int getNumRawDataModules() {
 
 // Computes a Reed-Solomon ECC generator polynomial for the given degree, storing in result[0 : degree].
 // This could be implemented as a lookup table over all possible parameter values, instead of as an algorithm.
+// NES-QR-DEMO: l2 function
 testable void reedSolomonComputeDivisor(int degree, uint8_t result[]) {
-	uint8_t root;
-	int i, j;
 	// Polynomial coefficients are stored from highest to lowest power, excluding the leading term which is always 1.
 	// For example the polynomial x^3 + 255x^2 + 8x + 93 is stored as the uint8 array {255, 8, 93}.
 	memset(result, 0, (size_t)degree * sizeof(result[0]));
@@ -316,15 +385,15 @@ testable void reedSolomonComputeDivisor(int degree, uint8_t result[]) {
 	// Compute the product polynomial (x - r^0) * (x - r^1) * (x - r^2) * ... * (x - r^{degree-1}),
 	// drop the highest monomial term which is always 1x^degree.
 	// Note that r = 0x02, which is a generator element of this field GF(2^8/0x11D).
-	root = 1;
-	for (i = 0; i < degree; i++) {
+	d.l2.root = 1;
+	for (d.l2.i = 0; d.l2.i < degree; d.l2.i++) {
 		// Multiply the current product by (x - r^i)
-		for (j = 0; j < degree; j++) {
-			result[j] = reedSolomonMultiply(result[j], root);
-			if (j + 1 < degree)
-				result[j] ^= result[j + 1];
+		for (d.l2.j = 0; d.l2.j < degree; d.l2.j++) {
+			result[d.l2.j] = reedSolomonMultiply(result[d.l2.j], d.l2.root);
+			if (d.l2.j + 1 < degree)
+				result[d.l2.j] ^= result[d.l2.j + 1];
 		}
-		root = reedSolomonMultiply(root, 0x02);
+		d.l2.root = reedSolomonMultiply(d.l2.root, 0x02);
 	}
 }
 
@@ -332,17 +401,16 @@ testable void reedSolomonComputeDivisor(int degree, uint8_t result[]) {
 // Computes the Reed-Solomon error correction codeword for the given data and divisor polynomials.
 // The remainder when data[0 : dataLen] is divided by divisor[0 : degree] is stored in result[0 : degree].
 // All polynomials are in big endian, and the generator has an implicit leading 1 term.
+// NES-QR-DEMO: l2 function
 testable void reedSolomonComputeRemainder(const uint8_t data[], int dataLen,
 		const uint8_t generator[], int degree, uint8_t result[]) {
-	int i, j;
-	uint8_t factor;
 	memset(result, 0, (size_t)degree * sizeof(result[0]));
-	for (i = 0; i < dataLen; i++) {  // Polynomial division
-		factor = data[i] ^ result[0];
+	for (d.l2.i = 0; d.l2.i < dataLen; d.l2.i++) {  // Polynomial division
+		d.l2.factor = data[d.l2.i] ^ result[0];
 		memmove(&result[0], &result[1], (size_t)(degree - 1) * sizeof(result[0]));
 		result[degree - 1] = 0;
-		for (j = 0; j < degree; j++)
-			result[j] ^= reedSolomonMultiply(generator[j], factor);
+		for (d.l2.j = 0; d.l2.j < degree; d.l2.j++)
+			result[d.l2.j] ^= reedSolomonMultiply(generator[d.l2.j], d.l2.factor);
 	}
 }
 
@@ -351,15 +419,15 @@ testable void reedSolomonComputeRemainder(const uint8_t data[], int dataLen,
 
 // Returns the product of the two given field elements modulo GF(2^8/0x11D).
 // All inputs are valid. This could be implemented as a 256*256 lookup table.
+// NES-QR-DEMO: l3 function
 testable uint8_t reedSolomonMultiply(uint8_t x, uint8_t y) {
 	// Russian peasant multiplication
-	uint8_t z = 0;
-	int i;
-	for (i = 7; i >= 0; i--) {
-		z = (uint8_t)((z << 1) ^ ((z >> 7) * 0x11D));
-		z ^= ((y >> i) & 1) * x;
+	d.l3.z = 0;
+	for (d.l3.i = 7; d.l3.i >= 0; d.l3.i--) {
+		d.l3.z = (uint8_t)((d.l3.z << 1) ^ ((d.l3.z >> 7) * 0x11D));
+		d.l3.z ^= ((y >> d.l3.i) & 1) * x;
 	}
-	return z;
+	return d.l3.z;
 }
 
 
@@ -368,38 +436,38 @@ testable uint8_t reedSolomonMultiply(uint8_t x, uint8_t y) {
 
 // Clears the given QR Code grid with light modules for the given
 // version's size, then marks every function module as dark.
+// NES-QR-DEMO: l1 function
 testable void initializeFunctionModules(uint8_t buf[]) {
 	// Initialize QR Code
-	int qrsize = version * 4 + 17;
-	memset(buf, 0, (size_t)((qrsize * qrsize + 7) / 8 + 1) * sizeof(buf[0]));
-	buf[0] = (uint8_t)qrsize;
+	d.l1.qrsize = d.l0.version * 4 + 17;
+	memset(buf, 0, (size_t)((d.l1.qrsize * d.l1.qrsize + 7) / 8 + 1) * sizeof(buf[0]));
+	buf[0] = (uint8_t)d.l1.qrsize;
 	
 	// Fill horizontal and vertical timing patterns
-	fillRectangle(6, 0, 1, qrsize, buf);
-	fillRectangle(0, 6, qrsize, 1, buf);
+	fillRectangle(6, 0, 1, d.l1.qrsize, buf);
+	fillRectangle(0, 6, d.l1.qrsize, 1, buf);
 	
 	// Fill 3 finder patterns (all corners except bottom right) and format bits
 	fillRectangle(0, 0, 9, 9, buf);
-	fillRectangle(qrsize - 8, 0, 8, 9, buf);
-	fillRectangle(0, qrsize - 8, 9, 8, buf);
+	fillRectangle(d.l1.qrsize - 8, 0, 8, 9, buf);
+	fillRectangle(0, d.l1.qrsize - 8, 9, 8, buf);
 	
 	// Fill numerous alignment patterns
 	{
-		int numAlign, i, j;
-		numAlign = getAlignmentPatternPositions();
-		for (i = 0; i < numAlign; i++) {
-			for (j = 0; j < numAlign; j++) {
+		d.l1.numAlign = getAlignmentPatternPositions();
+		for (d.l1.i = 0; d.l1.i < d.l1.numAlign; d.l1.i++) {
+			for (d.l1.j = 0; d.l1.j < d.l1.numAlign; d.l1.j++) {
 				// Don't draw on the three finder corners
-				if (!((i == 0 && j == 0) || (i == 0 && j == numAlign - 1) || (i == numAlign - 1 && j == 0)))
-					fillRectangle(alignPatPos[i] - 2, alignPatPos[j] - 2, 5, 5, buf);
+				if (!((d.l1.i == 0 && d.l1.j == 0) || (d.l1.i == 0 && d.l1.j == d.l1.numAlign - 1) || (d.l1.i == d.l1.numAlign - 1 && d.l1.j == 0)))
+					fillRectangle(d.l1.alignPatPos[d.l1.i] - 2, d.l1.alignPatPos[d.l1.j] - 2, 5, 5, buf);
 			}
 		}
 	}
 	
 	// Fill version blocks
-	if (version >= 7) {
-		fillRectangle(qrsize - 11, 0, 3, 6, buf);
-		fillRectangle(0, qrsize - 11, 6, 3, buf);
+	if (d.l0.version >= 7) {
+		fillRectangle(d.l1.qrsize - 11, 0, 3, 6, buf);
+		fillRectangle(0, d.l1.qrsize - 11, 6, 3, buf);
 	}
 }
 
@@ -407,60 +475,59 @@ testable void initializeFunctionModules(uint8_t buf[]) {
 // Draws light function modules and possibly some dark modules onto the given QR Code, without changing
 // non-function modules. This does not draw the format bits. This requires all function modules to be previously
 // marked dark (namely by initializeFunctionModules()), because this may skip redrawing dark function modules.
+// NES-QR-DEMO: l1 function
 static void drawLightFunctionModules() {
-	int i, j, dy, dx;
 	// Draw horizontal and vertical timing patterns
-	int qrsize = qrcodegen_getSize();
-	for (i = 7; i < qrsize - 7; i += 2) {
-		setModuleBounded(qrcode, 6, i, false);
-		setModuleBounded(qrcode, i, 6, false);
+	d.l1.qrsize = qrcodegen_getSize();
+	for (d.l1.i = 7; d.l1.i < d.l1.qrsize - 7; d.l1.i += 2) {
+		setModuleBounded(qrcode, 6, d.l1.i, false);
+		setModuleBounded(qrcode, d.l1.i, 6, false);
 	}
 	
 	// Draw 3 finder patterns (all corners except bottom right; overwrites some timing modules)
-	for (dy = -4; dy <= 4; dy++) {
-		for (dx = -4; dx <= 4; dx++) {
-			int dist = abs(dx);
-			if (abs(dy) > dist)
-				dist = abs(dy);
+	for (d.l1.dy = -4; d.l1.dy <= 4; d.l1.dy++) {
+		for (d.l1.dx = -4; d.l1.dx <= 4; d.l1.dx++) {
+			int dist = abs(d.l1.dx);
+			if (abs(d.l1.dy) > dist)
+				dist = abs(d.l1.dy);
 			if (dist == 2 || dist == 4) {
-				setModuleUnbounded(3 + dx, 3 + dy, false);
-				setModuleUnbounded(qrsize - 4 + dx, 3 + dy, false);
-				setModuleUnbounded(3 + dx, qrsize - 4 + dy, false);
+				setModuleUnbounded(3 + d.l1.dx, 3 + d.l1.dy, false);
+				setModuleUnbounded(d.l1.qrsize - 4 + d.l1.dx, 3 + d.l1.dy, false);
+				setModuleUnbounded(3 + d.l1.dx, d.l1.qrsize - 4 + d.l1.dy, false);
 			}
 		}
 	}
 	
 	// Draw numerous alignment patterns
 	{
-		int numAlign = getAlignmentPatternPositions();
-		for (i = 0; i < numAlign; i++) {
-			for (j = 0; j < numAlign; j++) {
-				if ((i == 0 && j == 0) || (i == 0 && j == numAlign - 1) || (i == numAlign - 1 && j == 0))
+		d.l1.numAlign = getAlignmentPatternPositions();
+		for (d.l1.i = 0; d.l1.i < d.l1.numAlign; d.l1.i++) {
+			for (d.l1.j = 0; d.l1.j < d.l1.numAlign; d.l1.j++) {
+				if ((d.l1.i == 0 && d.l1.j == 0) || (d.l1.i == 0 && d.l1.j == d.l1.numAlign - 1) || (d.l1.i == d.l1.numAlign - 1 && d.l1.j == 0))
 					continue;  // Don't draw on the three finder corners
-				for (dy = -1; dy <= 1; dy++) {
-					for (dx = -1; dx <= 1; dx++)
-						setModuleBounded(qrcode, alignPatPos[i] + dx, alignPatPos[j] + dy, dx == 0 && dy == 0);
+				for (d.l1.dy = -1; d.l1.dy <= 1; d.l1.dy++) {
+					for (d.l1.dx = -1; d.l1.dx <= 1; d.l1.dx++)
+						setModuleBounded(qrcode, d.l1.alignPatPos[d.l1.i] + d.l1.dx, d.l1.alignPatPos[d.l1.j] + d.l1.dy, d.l1.dx == 0 && d.l1.dy == 0);
 				}
 			}
 		}
 	}
 	
 	// Draw version blocks
-	if (version >= 7) {
-		uint16_t bits;
+	if (d.l0.version >= 7) {
 		// Calculate error correction code and pack bits
-		int rem = version;  // version is uint6, in the range [7, 40]
-		for (i = 0; i < 12; i++)
-			rem = (rem << 1) ^ ((rem >> 11) * 0x1F25);
-		bits = (uint16_t)version << 12 | rem;  // uint18
+		d.l1.rem = d.l0.version;  // version is uint6, in the range [7, 40]
+		for (d.l1.i = 0; d.l1.i < 12; d.l1.i++)
+			d.l1.rem = (d.l1.rem << 1) ^ ((d.l1.rem >> 11) * 0x1F25);
+		d.l1.bits = (uint16_t)d.l0.version << 12 | d.l1.rem;  // uint18
 		
 		// Draw two copies
-		for (i = 0; i < 6; i++) {
-			for (j = 0; j < 3; j++) {
-				int k = qrsize - 11 + j;
-				setModuleBounded(qrcode, k, i, (bits & 1) != 0);
-				setModuleBounded(qrcode, i, k, (bits & 1) != 0);
-				bits >>= 1;
+		for (d.l1.i = 0; d.l1.i < 6; d.l1.i++) {
+			for (d.l1.j = 0; d.l1.j < 3; d.l1.j++) {
+				d.l1.k = d.l1.qrsize - 11 + d.l1.j;
+				setModuleBounded(qrcode, d.l1.k, d.l1.i, (d.l1.bits & 1) != 0);
+				setModuleBounded(qrcode, d.l1.i, d.l1.k, (d.l1.bits & 1) != 0);
+				d.l1.bits >>= 1;
 			}
 		}
 	}
@@ -470,6 +537,7 @@ static void drawLightFunctionModules() {
 // Draws two copies of the format bits (with its own error correction code) based
 // on the given mask and error correction level. This always draws all modules of
 // the format bits, unlike drawLightFunctionModules() which might skip dark modules.
+// NES-QR-DEMO: l1 function
 static void drawFormatBits(enum qrcodegen_Mask mask) {
 	// Calculate error correction code and pack bits
 	static const int table[] = {1, 0, 3, 2};
@@ -504,16 +572,16 @@ static void drawFormatBits(enum qrcodegen_Mask mask) {
 // Each position is in the range [0,177), and are used on both the x and y axes.
 // This could be implemented as lookup table of 40 variable-length lists of unsigned bytes.
 testable int getAlignmentPatternPositions() {
-	if (version == 1)
+	if (d.l0.version == 1)
 		return 0;
 	{
-		int numAlign = version / 7 + 2;
-		int step = (version == 32) ? 26 :
-			(version * 4 + numAlign * 2 + 1) / (numAlign * 2 - 2) * 2;
+		int numAlign = d.l0.version / 7 + 2;
+		int step = (d.l0.version == 32) ? 26 :
+			(d.l0.version * 4 + numAlign * 2 + 1) / (numAlign * 2 - 2) * 2;
 		int i, pos;
-		for (i = numAlign - 1, pos = version * 4 + 10; i >= 1; i--, pos -= step)
-			alignPatPos[i] = (uint8_t)pos;
-		alignPatPos[0] = 6;
+		for (i = numAlign - 1, pos = d.l0.version * 4 + 10; i >= 1; i--, pos -= step)
+			d.l1.alignPatPos[i] = (uint8_t)pos;
+		d.l1.alignPatPos[0] = 6;
 		return numAlign;
 	}
 }
@@ -564,7 +632,7 @@ static void drawCodewords(int dataLen) {
 // and given pattern of function modules. The codeword bits must be drawn
 // before masking. Due to the arithmetic of XOR, calling applyMask() with
 // the same mask value a second time will undo the mask. A final well-formed
-// QR Code needs exactly one (not zero, two, etc.) mask applied.
+// QR Code needs exactly one (not zero, two, etc.) mask applied.l0.
 static void applyMask(enum qrcodegen_Mask mask) {
 	int qrsize = qrcodegen_getSize();
 	int y, x;
@@ -780,7 +848,7 @@ testable int getTotalBits() {
 		int ccbits = numCharCountBits();
 		if (numChars >= (1L << ccbits))
 			return LENGTH_OVERFLOW;  // The segment's length doesn't fit the field's bit width
-		result += 4L + ccbits + bitLength;
+		result += 4L + ccbits + d.l0.bitLength;
 		if (result > INT16_MAX)
 			return LENGTH_OVERFLOW;  // The sum might overflow an int type
 	}
@@ -791,7 +859,7 @@ testable int getTotalBits() {
 // Returns the bit width of the character count field for a segment in the given mode
 // in a QR Code at the given version number. The result is in the range [0, 16].
 static uint8_t numCharCountBits() {
-	return version < 10 ? 8 : 16;
+	return d.l0.version < 10 ? 8 : 16;
 }
 
 
