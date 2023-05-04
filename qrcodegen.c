@@ -79,9 +79,9 @@ static uint8_t finderPenaltyCountPatterns(const int runHistory[7]);
 static int finderPenaltyTerminateAndCount(bool currentRunColor, int currentRunLength, int runHistory[7], int qrsize);
 static void finderPenaltyAddHistory(int currentRunLength, int runHistory[7], int qrsize);
 
-testable bool getModuleBounded(const uint8_t buf[], int x, int y);
-testable void setModuleBounded(uint8_t buf[], int x, int y, bool isDark);
-testable void setModuleUnbounded(int x, int y, bool isDark);
+testable bool getModuleBounded(const uint8_t buf[], int8_t x, int8_t y);
+testable void setModuleBounded(uint8_t buf[], int8_t x, int8_t y, bool isDark);
+testable void setModuleUnbounded(int8_t x, int8_t y, bool isDark);
 static bool getBit(int x, int i);
 
 testable int getTotalBits();
@@ -721,8 +721,8 @@ bool qrcodegen_getModule(int x, int y) {
 
 
 // Returns the color of the module at the given coordinates, which must be in bounds.
-testable bool getModuleBounded(const uint8_t buf[], int x, int y) {
-	int paddedQrsize = buf[0];
+testable bool getModuleBounded(const uint8_t buf[], int8_t x, int8_t y) {
+	uint8_t paddedQrsize = buf[0];
 	int index;
 	if ((paddedQrsize & 7) != 0)
 	{
@@ -734,15 +734,15 @@ testable bool getModuleBounded(const uint8_t buf[], int x, int y) {
 
 
 // Sets the color of the module at the given coordinates, which must be in bounds.
-testable void setModuleBounded(uint8_t buf[], int x, int y, bool isDark) {
-	int paddedQrsize = buf[0];
+testable void setModuleBounded(uint8_t buf[], int8_t x, int8_t y, bool isDark) {
+	uint8_t paddedQrsize = buf[0];
 	if ((paddedQrsize & 7) != 0)
 	{
 		paddedQrsize = (paddedQrsize & ~7) + 8;
 	}
 	{
 		int index = y * paddedQrsize + x;
-		int bitIndex = index & 7;
+		uint8_t bitIndex = index & 7;
 		int byteIndex = (index >> 3) + 1;
 		if (isDark)
 			buf[byteIndex] |= 1 << bitIndex;
@@ -753,8 +753,8 @@ testable void setModuleBounded(uint8_t buf[], int x, int y, bool isDark) {
 
 
 // Sets the color of the module at the given coordinates, doing nothing if out of bounds.
-testable void setModuleUnbounded(int x, int y, bool isDark) {
-	int qrsize = qrcode[0];
+testable void setModuleUnbounded(int8_t x, int8_t y, bool isDark) {
+	uint8_t qrsize = qrcode[0];
 	if (0 <= x && x < qrsize && 0 <= y && y < qrsize)
 		setModuleBounded(qrcode, x, y, isDark);
 }
