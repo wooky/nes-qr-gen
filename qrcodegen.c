@@ -91,6 +91,8 @@ static uint8_t numCharCountBits();
 
 /*---- Private tables of constants ----*/
 
+#pragma rodata-name("BANK0")
+
 // Sentinel value for use in only some functions.
 #define LENGTH_OVERFLOW -1
 
@@ -123,6 +125,8 @@ static const int PENALTY_N3 = 40;
 static const int PENALTY_N4 = 10;
 
 /*---- NES-QR-DEMO: global variables  ----*/
+
+#pragma code-name("BANK0")
 
 #define MIN_VERSION qrcodegen_VERSION_MIN
 #define MAX_VERSION 12
