@@ -91,7 +91,7 @@ static uint8_t numCharCountBits();
 
 /*---- Private tables of constants ----*/
 
-#pragma rodata-name("BANK0")
+#pragma rodata-name("BANK4")
 
 // Sentinel value for use in only some functions.
 #define LENGTH_OVERFLOW -1
@@ -126,7 +126,7 @@ static const int PENALTY_N4 = 10;
 
 /*---- NES-QR-DEMO: global variables  ----*/
 
-#pragma code-name("BANK0")
+#pragma code-name("BANK4")
 
 #define MIN_VERSION qrcodegen_VERSION_MIN
 #define MAX_VERSION 12
@@ -142,6 +142,8 @@ static size_t bitLength;
 static int bitLen;
 static uint8_t version;
 static uint8_t alignPatPos[7];
+
+extern uint8_t fastcall qr_solomon_reed_multiply(uint16_t adr);
 
 /*---- High-level QR Code encoding functions ----*/
 
@@ -356,14 +358,7 @@ testable void reedSolomonComputeRemainder(const uint8_t data[], int dataLen,
 // Returns the product of the two given field elements modulo GF(2^8/0x11D).
 // All inputs are valid. This could be implemented as a 256*256 lookup table.
 testable uint8_t reedSolomonMultiply(uint8_t x, uint8_t y) {
-	// Russian peasant multiplication
-	uint8_t z = 0;
-	int i;
-	for (i = 7; i >= 0; i--) {
-		z = (uint8_t)((z << 1) ^ ((z >> 7) * 0x11D));
-		z ^= ((y >> i) & 1) * x;
-	}
-	return z;
+	return qr_solomon_reed_multiply((x << 8) | y);
 }
 
 

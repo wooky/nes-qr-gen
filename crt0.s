@@ -11,6 +11,7 @@ FT_SFX_STREAMS			= 4		;number of sound effects played at once, 1..4
 
 
 	.export _exit,__STARTUP__:absolute=1
+	.exportzp PTR
 	.import initlib,push0,popa,popax,_main,zerobss,copydata
 
 	; Linker generated symbols
@@ -258,19 +259,3 @@ sounds_data:
 	.word nmi	;$fffa vblank nmi
 	.word start	;$fffc reset
 	.word irq	;$fffe irq / brk
-
-; ------------------------------------------------------------------------
-; character data
-; ------------------------------------------------------------------------
-
-; .segment "CHARS"
-;         .incbin        "tiles.chr"
-; .segment "CHARS2"
-;         .incbin        "tiles2.chr"
-; .segment "CHARS3"
-;         .incbin        "tiles3.chr"
-; .segment "CHARS4"
-;         .incbin        "tiles4.chr"
-; .segment "CHARS5"
-;         .incbin        "tiles5.chr"
-

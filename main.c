@@ -36,6 +36,13 @@ struct
 
 void main()
 {
+  // Set upper 16KB PRG to bank 4
+  *(unsigned char*)0xe000 = 2 | 0;
+  *(unsigned char*)0xe000 = 4 | 0;
+  *(unsigned char*)0xe000 = 8 | 1;
+  *(unsigned char*)0xe000 = 16 | 0;
+  *(unsigned char*)0xe000 = 32 | 0;
+
   memcpy(tempBuffer, text, sizeof(text));
   dataLen = sizeof(text);
   ecl = qrcodegen_Ecc_LOW;
