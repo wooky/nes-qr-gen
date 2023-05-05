@@ -71,7 +71,7 @@ static void drawFormatBits(enum qrcodegen_Mask mask);
 testable int getAlignmentPatternPositions();
 static void fillRectangle(int left, int top, int width, int height, uint8_t buf[]);
 
-static void drawCodewords(int dataLen);
+static void drawCodewords();
 static void applyMask(enum qrcodegen_Mask mask);
 static uint16_t getPenaltyScore();
 static uint8_t finderPenaltyCountPatterns(const int runHistory[7]);
@@ -175,18 +175,6 @@ static struct {
 			uint8_t *ecc;
 			int shortBlockDataLen;
 		} addEccAndInterleave;
-		struct {
-			uint16_t datLen;
-			uint8_t qrsize;
-			uint16_t i;
-			int16_t right;
-			uint8_t vert;
-			uint8_t j;
-			uint8_t x;
-			bool upward;
-			uint8_t y;
-			bool dark;
-		} drawCodewords;
 	};
 	union
 	{
@@ -197,7 +185,18 @@ static struct {
 			uint8_t factor;
 		} reedSolomonComputeRemainder;
 	};
-	
+	struct {
+		uint16_t datLen;
+		uint8_t qrsize;
+		uint16_t i;
+		uint8_t right;
+		uint8_t vert;
+		uint8_t j;
+		uint8_t x;
+		bool upward;
+		uint8_t y;
+		bool dark;
+	} drawCodewords;
 } d;
 
 /*---- High-level QR Code encoding functions ----*/
@@ -276,7 +275,8 @@ bool qrcodegen_encodeSegmentsAdvanced() {
 	// Compute ECC, draw modules
 	addEccAndInterleave();
 	initializeFunctionModules(qrcode);
-	drawCodewords(getNumRawDataModules() / 8);
+	d.drawCodewords.datLen = getNumRawDataModules() / 8;
+	drawCodewords();
 	drawLightFunctionModules();
 	initializeFunctionModules(tempBuffer);
 	
@@ -584,23 +584,22 @@ static void fillRectangle(int left, int top, int width, int height, uint8_t buf[
 
 // Draws the raw codewords (including data and ECC) onto the given QR Code. This requires the initial state of
 // the QR Code to be dark at function modules and light at codeword modules (including unused remainder bits).
-static void drawCodewords(int dataLen) {
-	int qrsize = qrcodegen_getSize();
-	int i = 0;  // Bit index into the data
+static void drawCodewords() {
+	d.drawCodewords.qrsize = qrcodegen_getSize();
+	d.drawCodewords.i = 0;  // Bit index into the data
 	// Do the funny zigzag scan
-	int right, vert, j;
-	for (right = qrsize - 1; right >= 1; right -= 2) {  // Index of right column in each column pair
-		if (right == 6)
-			right = 5;
-		for (vert = 0; vert < qrsize; vert++) {  // Vertical counter
-			for (j = 0; j < 2; j++) {
-				int x = right - j;  // Actual x coordinate
-				bool upward = ((right + 1) & 2) == 0;
-				int y = upward ? qrsize - 1 - vert : vert;  // Actual y coordinate
-				if (!getModuleBounded(qrcode, x, y) && i < dataLen * 8) {
-					bool dark = getBit(tempBuffer[i >> 3], 7 - (i & 7));
-					setModuleBounded(qrcode, x, y, dark);
-					i++;
+	for (d.drawCodewords.right = d.drawCodewords.qrsize - 1; d.drawCodewords.right != 0 && d.drawCodewords.right != 0xff; d.drawCodewords.right -= 2) {  // Index of right column in each column pair
+		if (d.drawCodewords.right == 6)
+			d.drawCodewords.right = 5;
+		for (d.drawCodewords.vert = 0; d.drawCodewords.vert < d.drawCodewords.qrsize; ++d.drawCodewords.vert) {  // Vertical counter
+			for (d.drawCodewords.j = 0; d.drawCodewords.j < 2; ++d.drawCodewords.j) {
+				d.drawCodewords.x = d.drawCodewords.right - d.drawCodewords.j;  // Actual x coordinate
+				d.drawCodewords.upward = ((d.drawCodewords.right + 1) & 2) == 0; // TODO does a pointless jsr here
+				d.drawCodewords.y = d.drawCodewords.upward ? d.drawCodewords.qrsize - 1 - d.drawCodewords.vert : d.drawCodewords.vert;  // Actual y coordinate
+				if (!getModuleBounded(qrcode, d.drawCodewords.x, d.drawCodewords.y) && d.drawCodewords.i < d.drawCodewords.datLen * 8) {
+					d.drawCodewords.dark = getBit(tempBuffer[d.drawCodewords.i >> 3], 7 - (d.drawCodewords.i & 7));
+					setModuleBounded(qrcode, d.drawCodewords.x, d.drawCodewords.y, d.drawCodewords.dark);
+					++d.drawCodewords.i;
 				}
 				// If this QR Code has any remainder bits (0 to 7), they were assigned as
 				// 0/false/light by the constructor and are left unchanged by this method
