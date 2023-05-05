@@ -62,9 +62,8 @@ testable int getNumDataCodewords(enum qrcodegen_Ecc ecl);
 testable int getNumRawDataModules();
 
 testable void reedSolomonComputeDivisor(int degree, uint8_t result[]);
-testable void reedSolomonComputeRemainder(const uint8_t data[], int dataLen,
-	const uint8_t generator[], int degree, uint8_t result[]);
-testable uint8_t reedSolomonMultiply(uint8_t x, uint8_t y);
+testable void reedSolomonComputeRemainder();
+extern uint8_t __fastcall__ reedSolomonMultiply(uint8_t x, uint8_t y);
 
 testable void initializeFunctionModules(uint8_t buf[]);
 static void drawLightFunctionModules();
@@ -149,7 +148,7 @@ static int bitLen;
 static uint8_t version;
 static uint8_t alignPatPos[7];
 
-extern uint8_t fastcall qr_solomon_reed_multiply(uint16_t adr);
+extern uint8_t fastcall qr_reed_solomon_multiply(uint16_t adr);
 
 static struct {
 	union {
@@ -168,7 +167,37 @@ static struct {
 			uint8_t bitIndex;
 			uint16_t byteIndex;
 		} setModuleBounded;
+		struct {
+			uint8_t *dat;
+			int datLen;
+			uint8_t rsdiv[qrcodegen_REED_SOLOMON_DEGREE_MAX];
+			uint8_t blockEccLen;
+			uint8_t *ecc;
+			int shortBlockDataLen;
+		} addEccAndInterleave;
+		struct {
+			uint16_t datLen;
+			uint8_t qrsize;
+			uint16_t i;
+			int16_t right;
+			uint8_t vert;
+			uint8_t j;
+			uint8_t x;
+			bool upward;
+			uint8_t y;
+			bool dark;
+		} drawCodewords;
 	};
+	union
+	{
+		struct
+		{
+			int i;
+			uint8_t j;
+			uint8_t factor;
+		} reedSolomonComputeRemainder;
+	};
+	
 } d;
 
 /*---- High-level QR Code encoding functions ----*/
@@ -283,32 +312,30 @@ bool qrcodegen_encodeSegmentsAdvanced() {
 testable void addEccAndInterleave() {
 	// Calculate parameter numbers
 	uint8_t numBlocks = NUM_ERROR_CORRECTION_BLOCKS[ecl][version];
-	uint8_t blockEccLen = ECC_CODEWORDS_PER_BLOCK  [ecl][version];
 	int rawCodewords = getNumRawDataModules() / 8;
 	int dataLen = getNumDataCodewords(ecl);
 	int numShortBlocks = numBlocks - rawCodewords % numBlocks;
-	int shortBlockDataLen = rawCodewords / numBlocks - blockEccLen;
-	const uint8_t *dat;
 	int i;
+	d.addEccAndInterleave.blockEccLen = ECC_CODEWORDS_PER_BLOCK  [ecl][version];
+	d.addEccAndInterleave.shortBlockDataLen = rawCodewords / numBlocks - d.addEccAndInterleave.blockEccLen;
 	
 	// Split data into blocks, calculate ECC, and interleave
 	// (not concatenate) the bytes into a single sequence
-	uint8_t rsdiv[qrcodegen_REED_SOLOMON_DEGREE_MAX];
-	reedSolomonComputeDivisor(blockEccLen, rsdiv);
-	dat = qrcode;
+	reedSolomonComputeDivisor(d.addEccAndInterleave.blockEccLen, d.addEccAndInterleave.rsdiv);
+	d.addEccAndInterleave.dat = qrcode;
 	for (i = 0; i < numBlocks; i++) {
-		int datLen = shortBlockDataLen + (i < numShortBlocks ? 0 : 1);
-		uint8_t *ecc = &qrcode[dataLen];  // Temporary storage
 		int j, k;
-		reedSolomonComputeRemainder(dat, datLen, rsdiv, blockEccLen, ecc);
-		for (j = 0, k = i; j < datLen; j++, k += numBlocks) {  // Copy data
-			if (j == shortBlockDataLen)
+		d.addEccAndInterleave.datLen = d.addEccAndInterleave.shortBlockDataLen + (i < numShortBlocks ? 0 : 1);
+		d.addEccAndInterleave.ecc = &qrcode[dataLen];  // Temporary storage
+		reedSolomonComputeRemainder();
+		for (j = 0, k = i; j < d.addEccAndInterleave.datLen; j++, k += numBlocks) {  // Copy data
+			if (j == d.addEccAndInterleave.shortBlockDataLen)
 				k -= numShortBlocks;
-			tempBuffer[k] = dat[j];
+			tempBuffer[k] = d.addEccAndInterleave.dat[j];
 		}
-		for (j = 0, k = dataLen + i; j < blockEccLen; j++, k += numBlocks)  // Copy ECC
-			tempBuffer[k] = ecc[j];
-		dat += datLen;
+		for (j = 0, k = dataLen + i; j < d.addEccAndInterleave.blockEccLen; j++, k += numBlocks)  // Copy ECC
+			tempBuffer[k] = d.addEccAndInterleave.ecc[j];
+		d.addEccAndInterleave.dat += d.addEccAndInterleave.datLen;
 	}
 }
 
@@ -369,28 +396,21 @@ testable void reedSolomonComputeDivisor(int degree, uint8_t result[]) {
 // Computes the Reed-Solomon error correction codeword for the given data and divisor polynomials.
 // The remainder when data[0 : dataLen] is divided by divisor[0 : degree] is stored in result[0 : degree].
 // All polynomials are in big endian, and the generator has an implicit leading 1 term.
-testable void reedSolomonComputeRemainder(const uint8_t data[], int dataLen,
-		const uint8_t generator[], int degree, uint8_t result[]) {
-	int i, j;
-	uint8_t factor;
-	memset(result, 0, (size_t)degree * sizeof(result[0]));
-	for (i = 0; i < dataLen; i++) {  // Polynomial division
-		factor = data[i] ^ result[0];
-		memmove(&result[0], &result[1], (size_t)(degree - 1) * sizeof(result[0]));
-		result[degree - 1] = 0;
-		for (j = 0; j < degree; j++)
-			result[j] ^= reedSolomonMultiply(generator[j], factor);
+testable void reedSolomonComputeRemainder(/*const uint8_t data[], int dataLen,
+		const uint8_t generator[], int degree, uint8_t result[]*/) {
+	memset(d.addEccAndInterleave.ecc, 0, (size_t)d.addEccAndInterleave.blockEccLen * sizeof(d.addEccAndInterleave.ecc[0]));
+	for (d.reedSolomonComputeRemainder.i = 0; d.reedSolomonComputeRemainder.i < d.addEccAndInterleave.datLen; ++d.reedSolomonComputeRemainder.i) {  // Polynomial division
+		d.reedSolomonComputeRemainder.factor = d.addEccAndInterleave.dat[d.reedSolomonComputeRemainder.i] ^ d.addEccAndInterleave.ecc[0];
+		memmove(&d.addEccAndInterleave.ecc[0], &d.addEccAndInterleave.ecc[1], (size_t)(d.addEccAndInterleave.blockEccLen - 1) * sizeof(d.addEccAndInterleave.ecc[0]));
+		d.addEccAndInterleave.ecc[d.addEccAndInterleave.blockEccLen - 1] = 0;
+		for (d.reedSolomonComputeRemainder.j = 0; d.reedSolomonComputeRemainder.j < d.addEccAndInterleave.blockEccLen; ++d.reedSolomonComputeRemainder.j)
+			d.addEccAndInterleave.ecc[d.reedSolomonComputeRemainder.j] ^= reedSolomonMultiply(d.addEccAndInterleave.rsdiv[d.reedSolomonComputeRemainder.j], d.reedSolomonComputeRemainder.factor);
 	}
 }
 
 #undef qrcodegen_REED_SOLOMON_DEGREE_MAX
 
 
-// Returns the product of the two given field elements modulo GF(2^8/0x11D).
-// All inputs are valid. This could be implemented as a 256*256 lookup table.
-testable uint8_t reedSolomonMultiply(uint8_t x, uint8_t y) {
-	return qr_solomon_reed_multiply((x << 8) | y);
-}
 
 
 
@@ -738,8 +758,8 @@ static void finderPenaltyAddHistory(int currentRunLength, int runHistory[7], int
 /*---- Basic QR Code information ----*/
 
 // Public function - see documentation comment in header file.
-int qrcodegen_getSize() {
-	int result = qrcode[0];
+uint8_t qrcodegen_getSize() {
+	uint8_t result = qrcode[0];
 	return result;
 }
 

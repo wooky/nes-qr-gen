@@ -266,7 +266,7 @@ size_t qrcodegen_calcSegmentBufferSize(enum qrcodegen_Mode mode, size_t numChars
  * is related to the side length - every 'uint8_t qrcode[]' must have length at least
  * qrcodegen_BUFFER_LEN_FOR_VERSION(version), which equals ceil(size^2 / 8 + 1).
  */
-int qrcodegen_getSize();
+uint8_t qrcodegen_getSize();
 
 
 /* 

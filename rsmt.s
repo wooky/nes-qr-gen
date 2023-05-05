@@ -1,5 +1,6 @@
-  .export _qr_solomon_reed_multiply
-  .importzp PTR
+  .export _reedSolomonMultiply
+  .importzp ptr1
+  .import popa
 
   .feature org_per_seg
 
@@ -278,12 +279,8 @@
   .segment "CODE"
   .reloc
 
-; uint8_t fastcall qr_solomon_reed_multiply(uint16_t adr)
-_qr_solomon_reed_multiply:
-  ; X is the x-position
-  ; Store as the lower byte of the index
-  stx <PTR
-
+; uint8_t __fastcall__ reedSolomonMultiply(uint8_t x, uint8_t y)
+_reedSolomonMultiply:
   ; A is the y-position
   ; Upper 2 bits give the bank
   tax
@@ -306,11 +303,15 @@ _qr_solomon_reed_multiply:
   txa
   and #%00111111
   adc #$80
-  sta <PTR+1
+  sta ptr1+1
+
+  ; Pop x-position from stack and store as lower byte of index
+  jsr popa
+  sta ptr1
 
   ; Retrieve value from table
   ldy #$00
-  lda (PTR),y
+  lda (ptr1),y
 
   ; Restore upper 16KB PRG to bank 4
   ldx #0
@@ -319,7 +320,7 @@ _qr_solomon_reed_multiply:
   stx $e000
   ldx #1
   stx $e000
-  ldx #0
+  ldx #0 ; Conveniently register x is 0
   stx $e000
   nop
   stx $e000
