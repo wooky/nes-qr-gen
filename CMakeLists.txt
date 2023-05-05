@@ -26,9 +26,9 @@ add_custom_command(
 
 add_executable(${PROJECT_NAME}.nes
   "${CMAKE_CURRENT_SOURCE_DIR}/keyboard.c"
-  # "${CMAKE_CURRENT_SOURCE_DIR}/main.c"
   "${CMAKE_CURRENT_SOURCE_DIR}/qrcodegen.c"
   "${CMAKE_CURRENT_SOURCE_DIR}/screen_editor.c"
+  "${CMAKE_CURRENT_SOURCE_DIR}/screen_qr.c"
   "${CMAKE_CURRENT_SOURCE_DIR}/rsmt.s"
   "${CMAKE_CURRENT_SOURCE_DIR}/crt0.s"
   "${CMAKE_CURRENT_SOURCE_DIR}/lz4vram.s"

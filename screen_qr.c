@@ -1,16 +1,6 @@
 #include "neslib.h"
-#include "qrcodegen.h"
-#include <string.h>
-
-#define NEW_STRING(var, val) unsigned char var[sizeof(val)-1] = val
-const NEW_STRING(text, "What the fuck did you just fucking say about me, you little bitch? I'll have you know I graduated top of my class in the Navy Seals, and I've been involved in numerous secret raids on Al-Quaeda, and I have over 300 confirmed kills. I am trained in gorilla warfare and I'm the top sniper in the entire US armed forces. You are nothing to me but just another target. I will wipe you the fuck out with precision the likes of which has never been seen before on this Earth, mark my fucking words. You think you can get away with saying that shit to me over the Internet? Think again, fucker. As we speak I am contacting my secret network of spies across the USA and your IP is being traced right now so you better prepare for the storm, maggot. The storm that wipes out the pathetic little thing you call your life. You're fucking dead, kid. I can be anywhere, anytime, and I can kill you in over seven hundred ways, and that's just with my bare hands. Not only am I extensively trained in unarmed combat, but I have access to the entire arsenal of the United States Marine Corps and I will use it to its full extent to wipe your miserable ass off the face of the continent, you little shit. If only you could have known what unholy retribution your little \"clever\" comment was about to bring down upon you, maybe you would have held your fucking tongue.");
-
-extern uint8_t tempBuffer[];
-extern size_t dataLen;
-extern uint8_t qrcode[];
-extern enum qrcodegen_Ecc ecl;
-extern enum qrcodegen_Mask mask;
-extern bool boostEcl;
+#include "screen.h"
+#include "keyboard.h"
 
 struct
 {
@@ -34,8 +24,11 @@ struct
 } data;
 
 
-void main()
+void screen_qr (void)
 {
+  vram_adr(NAMETABLE_A);
+  vram_fill(0, NAMETABLE_B - NAMETABLE_A);
+
   // Set upper 16KB PRG to bank 4
   *(unsigned char*)0xe000 = 2 | 0;
   *(unsigned char*)0xe000 = 4 | 0;
@@ -43,11 +36,6 @@ void main()
   *(unsigned char*)0xe000 = 16 | 0;
   *(unsigned char*)0xe000 = 32 | 0;
 
-  memcpy(tempBuffer, text, sizeof(text));
-  dataLen = sizeof(text);
-  ecl = qrcodegen_Ecc_LOW;
-  mask = qrcodegen_Mask_0;
-  boostEcl = false;
   data.state = qrcodegen_encodeBinary();
   if (!data.state)
   {
@@ -102,7 +90,12 @@ void main()
   ppu_on_all();
   while (1)
   {
-    /* code */
+    if (keyboard_poll() != KEYBOARD_NO_KEY)
+    {
+      break;
+    }
   }
   
+  ppu_off();
+  screen_editor();
 }

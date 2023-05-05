@@ -5,15 +5,15 @@
 #define KEYBOARD_SHIFT '\t'
 
 static const uint8_t keys[9][8] = {
-  "][\n\a\a\\\t\a",
-  ";:@\a^-/_",
-  "klo\a0p,.",
-  "jui\a89nm",
-  "hgy\a67vb",
-  "drt\a45cf",
-  "asw\a3ezx",
-  "\aq\a\a21\a\t",
-  "\a\a\a\a\a\b \a",
+  "][\n\004\000\\\t\000",
+  ";:@\000^-/_",
+  "klo\0000p,.",
+  "jui\00089nm",
+  "hgy\00067vb",
+  "drt\00345cf",
+  "asw\0023ezx",
+  "\000q\000\00121\000\t",
+  "\000\000\000\000\000\b \000",
 };
 
 static struct {

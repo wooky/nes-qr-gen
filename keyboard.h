@@ -3,7 +3,11 @@
 
 #include <stdint.h>
 
-#define KEYBOARD_NO_KEY '\a'
+#define KEYBOARD_NO_KEY '\000'
+#define KEYBOARD_F1 '\001'
+#define KEYBOARD_F2 '\002'
+#define KEYBOARD_F3 '\003'
+#define KEYBOARD_F8 '\004'
 #define KEYBOARD_BACKSPACE '\b'
 
 uint8_t fastcall keyboard_poll (void);
