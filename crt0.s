@@ -20,7 +20,7 @@ FT_SFX_STREAMS			= 4		;number of sound effects played at once, 1..4
 	.import __STARTUP_LOAD__,__STARTUP_RUN__,__STARTUP_SIZE__
 	.import	__CODE_LOAD__   ,__CODE_RUN__   ,__CODE_SIZE__
 	.import	__RODATA_LOAD__ ,__RODATA_RUN__ ,__RODATA_SIZE__
-	.import NES_MAPPER,NES_PRG_BANKS,NES_CHR_BANKS,NES_MIRRORING
+	.import NES_MAPPER,NES_PRG_BANKS,NES_CHR_BANKS,NES_MIRRORING,NES_PRG_RAM
 
 	.include "zeropage.inc"
 
@@ -102,7 +102,8 @@ RLE_BYTE		=TEMP+3
 	.byte <NES_CHR_BANKS
 	.byte <NES_MIRRORING|(<NES_MAPPER<<4)
 	.byte <NES_MAPPER&$f0
-	.res 8,0
+	.byte <NES_PRG_RAM
+	.res 7,0
 
 
 

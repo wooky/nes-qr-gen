@@ -20,6 +20,9 @@
  *   out of or in connection with the Software or the use or other dealings in the
  *   Software.
  */
+/*
+ * Modified for nes-qr-demo
+ */
 
 #ifndef QRCODEGEN_H_
 #define QRCODEGEN_H_

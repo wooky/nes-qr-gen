@@ -84,7 +84,7 @@ testable void setModuleBounded(uint8_t buf[], int8_t x, int8_t y, bool isDark);
 testable void setModuleUnbounded(int8_t x, int8_t y, bool isDark);
 static bool getBit(int x, int i);
 
-testable int getTotalBits();
+testable uint16_t getTotalBits();
 static uint8_t numCharCountBits();
 
 
@@ -126,14 +126,18 @@ static const int PENALTY_N4 = 10;
 
 /*---- NES-QR-DEMO: global variables  ----*/
 
-#pragma code-name("BANK4")
+#pragma bss-name (push, "WRAM")
 
 #define MIN_VERSION qrcodegen_VERSION_MIN
-#define MAX_VERSION 12
+#define MAX_VERSION 27
 #define BUFFER_SIZE qrcodegen_BUFFER_LEN_FOR_VERSION(MAX_VERSION)
 uint8_t tempBuffer[BUFFER_SIZE];
-size_t dataLen;
 uint8_t qrcode[BUFFER_SIZE];
+
+#pragma bss-name (pop)
+#pragma code-name ("BANK4")
+
+size_t dataLen;
 enum qrcodegen_Ecc ecl;
 enum qrcodegen_Mask mask;
 bool boostEcl;
@@ -169,10 +173,11 @@ testable void appendBitsToQrcode(uint16_t val, uint8_t numBits) {
 // Public function - see documentation comment in header file.
 bool qrcodegen_encodeSegmentsAdvanced() {
 	// Find the minimal version number to use
-	int dataUsedBits, i, dataCapacityBits, terminatorBits;
+	uint16_t dataUsedBits;
+	int i, dataCapacityBits, terminatorBits;
 	uint8_t padByte;
 	for (version = MIN_VERSION; ; version++) {
-		int dataCapacityBits = getNumDataCodewords(ecl) * 8;  // Number of data bits available
+		uint16_t dataCapacityBits = getNumDataCodewords(ecl) * 8;  // Number of data bits available
 		dataUsedBits = getTotalBits();
 		if (dataUsedBits != LENGTH_OVERFLOW && dataUsedBits <= dataCapacityBits)
 			break;  // This version number is found to be suitable
@@ -772,18 +777,13 @@ static bool getBit(int x, int i) {
 // Calculates the number of bits needed to encode the given segments at the given version.
 // Returns a non-negative number if successful. Otherwise returns LENGTH_OVERFLOW if a segment
 // has too many characters to fit its length field, or the total bits exceeds INT16_MAX.
-testable int getTotalBits() {
-	long result = 0;
+testable uint16_t getTotalBits() {
+	uint8_t ccbits = numCharCountBits();
+	if (ccbits == 8 && dataLen >= 256)
 	{
-		int numChars  = dataLen;
-		int ccbits = numCharCountBits();
-		if (numChars >= (1L << ccbits))
-			return LENGTH_OVERFLOW;  // The segment's length doesn't fit the field's bit width
-		result += 4L + ccbits + bitLength;
-		if (result > INT16_MAX)
-			return LENGTH_OVERFLOW;  // The sum might overflow an int type
+		return LENGTH_OVERFLOW;
 	}
-	return (int)result;
+	return 4 + ccbits + bitLength;
 }
 
 
