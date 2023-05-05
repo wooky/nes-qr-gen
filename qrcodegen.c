@@ -130,7 +130,9 @@ static const int PENALTY_N4 = 10;
 
 #define MIN_VERSION qrcodegen_VERSION_MIN
 #define MAX_VERSION 27
-#define BUFFER_SIZE qrcodegen_BUFFER_LEN_FOR_VERSION(MAX_VERSION)
+#define BUFFER_HEIGHT (MAX_VERSION * 4 + 17)
+#define BUFFER_WIDTH 256
+#define BUFFER_SIZE ((BUFFER_WIDTH * BUFFER_HEIGHT) / 8 + 1)
 uint8_t tempBuffer[BUFFER_SIZE];
 uint8_t qrcode[BUFFER_SIZE];
 
@@ -194,7 +196,7 @@ bool qrcodegen_encodeSegmentsAdvanced() {
 	}
 	
 	// Concatenate all segments to create the data bit string
-	memset(qrcode, 0, (size_t)qrcodegen_BUFFER_LEN_FOR_VERSION(version) * sizeof(qrcode[0]));
+	memset(qrcode, 0, BUFFER_SIZE * sizeof(qrcode[0]));
 	bitLen = 0;
 	{
 		int j;
@@ -727,26 +729,15 @@ bool qrcodegen_getModule(int x, int y) {
 
 // Returns the color of the module at the given coordinates, which must be in bounds.
 testable bool getModuleBounded(const uint8_t buf[], int8_t x, int8_t y) {
-	uint8_t paddedQrsize = buf[0];
-	int index;
-	if ((paddedQrsize & 7) != 0)
-	{
-		paddedQrsize = (paddedQrsize & ~7) + 8;
-	}
-	index = y * paddedQrsize + x;
+	uint16_t index = y * BUFFER_WIDTH + x;
 	return getBit(buf[(index >> 3) + 1], index & 7);
 }
 
 
 // Sets the color of the module at the given coordinates, which must be in bounds.
 testable void setModuleBounded(uint8_t buf[], int8_t x, int8_t y, bool isDark) {
-	uint8_t paddedQrsize = buf[0];
-	if ((paddedQrsize & 7) != 0)
 	{
-		paddedQrsize = (paddedQrsize & ~7) + 8;
-	}
-	{
-		int index = y * paddedQrsize + x;
+		uint16_t index = y * BUFFER_WIDTH + x;
 		uint8_t bitIndex = index & 7;
 		int byteIndex = (index >> 3) + 1;
 		if (isDark)

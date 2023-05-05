@@ -84,7 +84,7 @@ void main()
         // FIXME this will read out of bounds for the last row of tiles
         for (data.fine_y = data.coarse_y; data.fine_y < data.coarse_y + 8; ++data.fine_y)
         {
-          data.qr_adr = data.fine_y * data.size;
+          data.qr_adr = data.fine_y << 8;
           data.qr_adr += data.coarse_x;
           data.qr_adr >>= 3;
           ++data.qr_adr;
