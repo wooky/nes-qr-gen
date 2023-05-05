@@ -12,20 +12,20 @@ static const uint8_t keys[9][8] = {
   "hgy\a67vb",
   "drt\a45cf",
   "asw\a3ezx",
-  "\aQ\a\a21\a\t",
+  "\aq\a\a21\a\t",
   "\a\a\a\a\a\b \a",
 };
 
 static struct {
+  uint8_t key_pressed;
+  uint8_t shift;
+  uint8_t key_idx;
   union {
     uint8_t row;
     uint8_t detection;
   };
-  uint8_t key_pressed;
   uint8_t key_polled;
   uint8_t potential_key_pressed;
-  uint8_t shift;
-  uint8_t key_idx;
   uint8_t col;
 } d;
 
@@ -88,7 +88,7 @@ uint8_t fastcall keyboard_poll (void)
     {
       d.key_pressed ^= 0x10;
     }
-    else if (d.key_pressed >= 'A' && d.key_pressed <= 'Z')
+    else if (d.key_pressed >= 'a' && d.key_pressed <= 'z')
     {
       d.key_pressed -= 0x20;
     }
