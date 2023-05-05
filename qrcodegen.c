@@ -55,7 +55,7 @@
 // - They are completely thread-safe if the caller does not give the
 //   same writable buffer to concurrent calls to these functions.
 
-testable void appendBitsToQrcode(uint16_t val, uint8_t numBits);
+testable void fastcall appendBitsToQrcode(uint16_t val, uint8_t numBits);
 
 testable void addEccAndInterleave();
 testable int getNumDataCodewords(enum qrcodegen_Ecc ecl);
@@ -82,7 +82,7 @@ static void finderPenaltyAddHistory(int currentRunLength, int runHistory[7], int
 testable bool getModuleBounded(const uint8_t buf[], int8_t x, int8_t y);
 testable void setModuleBounded(uint8_t buf[], int8_t x, int8_t y, bool isDark);
 testable void setModuleUnbounded(int8_t x, int8_t y, bool isDark);
-static bool getBit(int x, int i);
+static bool fastcall getBit(int x, uint8_t i);
 
 testable uint16_t getTotalBits();
 static uint8_t numCharCountBits();
@@ -151,6 +151,26 @@ static uint8_t alignPatPos[7];
 
 extern uint8_t fastcall qr_solomon_reed_multiply(uint16_t adr);
 
+static struct {
+	union {
+		struct {
+			int16_t i;
+			uint8_t *dest;
+			uint8_t byte;
+			uint8_t truncatedBitlen;
+			uint8_t shift;
+		} appendBitsToQrcode;
+		struct {
+			uint16_t index;
+		} getModuleBounded;
+		struct {
+			uint16_t index;
+			uint8_t bitIndex;
+			uint16_t byteIndex;
+		} setModuleBounded;
+	};
+} d;
+
 /*---- High-level QR Code encoding functions ----*/
 
 // Public function - see documentation comment in header file.
@@ -162,10 +182,14 @@ bool qrcodegen_encodeBinary() {
 
 // Appends the given number of low-order bits of the given value to the given byte-based
 // bit buffer, increasing the bit length. Requires 0 <= numBits <= 16 and val < 2^numBits.
-testable void appendBitsToQrcode(uint16_t val, uint8_t numBits) {
-	int i;
-	for (i = numBits - 1; i >= 0; i--, bitLen++)
-		qrcode[bitLen >> 3] |= ((val >> i) & 1) << (7 - (bitLen & 7));
+testable void fastcall appendBitsToQrcode(uint16_t val, uint8_t numBits) {
+	for (d.appendBitsToQrcode.i = numBits - 1; d.appendBitsToQrcode.i >= 0; --d.appendBitsToQrcode.i, ++bitLen) {
+		d.appendBitsToQrcode.dest = &qrcode[bitLen >> 3];
+		d.appendBitsToQrcode.byte = (val >> d.appendBitsToQrcode.i) & 1;
+		d.appendBitsToQrcode.truncatedBitlen = bitLen & 7;
+		d.appendBitsToQrcode.shift = 7 - d.appendBitsToQrcode.truncatedBitlen;
+		*d.appendBitsToQrcode.dest |= d.appendBitsToQrcode.byte << d.appendBitsToQrcode.shift;
+	}
 }
 
 
@@ -729,21 +753,22 @@ bool qrcodegen_getModule(int x, int y) {
 
 // Returns the color of the module at the given coordinates, which must be in bounds.
 testable bool getModuleBounded(const uint8_t buf[], int8_t x, int8_t y) {
-	uint16_t index = y * BUFFER_WIDTH + x;
-	return getBit(buf[(index >> 3) + 1], index & 7);
+	d.getModuleBounded.index = y * BUFFER_WIDTH + x;
+	return getBit(buf[(d.getModuleBounded.index >> 3) + 1], d.getModuleBounded.index & 7);
 }
 
 
 // Sets the color of the module at the given coordinates, which must be in bounds.
 testable void setModuleBounded(uint8_t buf[], int8_t x, int8_t y, bool isDark) {
+	static const uint8_t shifts[] = {0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80};
 	{
-		uint16_t index = y * BUFFER_WIDTH + x;
-		uint8_t bitIndex = index & 7;
-		int byteIndex = (index >> 3) + 1;
+		d.setModuleBounded.index = y * BUFFER_WIDTH + x;
+		d.setModuleBounded.bitIndex = d.setModuleBounded.index & 7;
+		d.setModuleBounded.byteIndex = (d.setModuleBounded.index >> 3) + 1;
 		if (isDark)
-			buf[byteIndex] |= 1 << bitIndex;
+			buf[d.setModuleBounded.byteIndex] |= shifts[d.setModuleBounded.bitIndex];
 		else
-			buf[byteIndex] &= (1 << bitIndex) ^ 0xFF;
+			buf[d.setModuleBounded.byteIndex] &= shifts[d.setModuleBounded.bitIndex] ^ 0xFF;
 	}
 }
 
@@ -757,8 +782,8 @@ testable void setModuleUnbounded(int8_t x, int8_t y, bool isDark) {
 
 
 // Returns true iff the i'th bit of x is set to 1. Requires x >= 0 and 0 <= i <= 14.
-static bool getBit(int x, int i) {
-	return ((x >> i) & 1) != 0;
+static bool fastcall getBit(int x, uint8_t i) {
+	return (x >> i) & 1;
 }
 
 
