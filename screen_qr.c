@@ -26,8 +26,8 @@ struct
 
 void screen_qr (void)
 {
-  vram_adr(NAMETABLE_A);
-  vram_fill(0, NAMETABLE_B - NAMETABLE_A);
+  vram_adr(0x0000);
+  vram_fill(0, NAMETABLE_B);
 
   // Set upper 16KB PRG to bank 4
   *(unsigned char*)0xe000 = 2 | 0;

@@ -421,7 +421,7 @@ testable void reedSolomonComputeRemainder(/*const uint8_t data[], int dataLen,
 testable void initializeFunctionModules(uint8_t buf[]) {
 	// Initialize QR Code
 	int qrsize = version * 4 + 17;
-	memset(buf, 0, (size_t)((qrsize * qrsize + 7) / 8 + 1) * sizeof(buf[0]));
+	memset(buf, 0, BUFFER_SIZE);
 	buf[0] = (uint8_t)qrsize;
 	
 	// Fill horizontal and vertical timing patterns
