@@ -1,6 +1,7 @@
 #include "keyboard.h"
 #include "build/chr.h"
 #include "screen.h"
+#include <string.h>
 
 #define CHR_CURSOR 0x7f
 
@@ -9,18 +10,27 @@ static const char palette[] = {
 };
 static const uint8_t status_bar_nametable[32 * 3 + 1] =
   "F1 ECL L F2 MASK 0 F3 bECL F    "
-  "F8 RUN PAGE 00 CHAR 0000/0000   "
+  "F8 RUN PAGE 00 CHAR 0000/1465   "
   "________________________________"
   "\x7f"
   ;
 static const uint8_t ecl_values[4] = "LMQH";
 static const uint8_t bool_values[2] = "FT";
+static const char max_text_size[4][4] = {
+  "1465",
+  "1125",
+  "0805",
+  "0625",
+};
+#define TEXT_SIZE_VRAM NTADR_A(20, 1)
 
 static uint8_t key, last_key;
-static uint8_t vram_buf[8];
+static uint8_t vram_buf[16];
 static uint16_t vram_ptr;
 static uint8_t key_debounce;
 static uint8_t *buf_ptr;
+static char text_size[4];
+static char *text_size_ptr;
 
 void main (void)
 {
@@ -45,6 +55,8 @@ void screen_editor (void)
   mask = qrcodegen_Mask_0;
   boostEcl = false;
 
+  memfill(text_size, '0', sizeof(text_size));
+
   ppu_on_all();
 
   while (1)
@@ -67,7 +79,12 @@ void screen_editor (void)
         vram_buf[0] = MSB(ECL_VRAM);
         vram_buf[1] = LSB(ECL_VRAM);
         vram_buf[2] = ecl_values[ecl];
-        vram_buf[3] = NT_UPD_EOF;
+        #define MAX_TEXT_SIZE_VRAM NTADR_A(25, 1)
+        vram_buf[3] = MSB(MAX_TEXT_SIZE_VRAM) | NT_UPD_HORZ;
+        vram_buf[4] = LSB(MAX_TEXT_SIZE_VRAM);
+        vram_buf[5] = sizeof(max_text_size[0]);
+        memcpy(&vram_buf[6], max_text_size[ecl], sizeof(max_text_size[0]));
+        vram_buf[6 + sizeof(max_text_size[0])] = NT_UPD_EOF;
         break;
 
       case KEYBOARD_F2:
@@ -101,25 +118,63 @@ void screen_editor (void)
         goto generate_qr;
 
       case KEYBOARD_BACKSPACE:
+        if (buf_ptr == tempBuffer)
+        {
+          break;
+        }
+        
         --vram_ptr;
         vram_buf[0] = MSB(vram_ptr) | NT_UPD_HORZ;
         vram_buf[1] = LSB(vram_ptr);
         vram_buf[2] = 2;
         vram_buf[3] = CHR_CURSOR;
         vram_buf[4] = ' ';
-        vram_buf[5] = NT_UPD_EOF;
+
+        for (text_size_ptr = &text_size[3]; ; --text_size_ptr)
+        {
+          if (*text_size_ptr != '0')
+          {
+            --*text_size_ptr;
+            break;
+          }
+          *text_size_ptr = '9';
+        }
+        vram_buf[5] = MSB(TEXT_SIZE_VRAM) | NT_UPD_HORZ;
+        vram_buf[6] = LSB(TEXT_SIZE_VRAM);
+        vram_buf[7] = 4;
+        memcpy(&vram_buf[8], text_size, sizeof(text_size));
+        vram_buf[8 + sizeof(text_size)] = NT_UPD_EOF;
 
         --buf_ptr;
         break;
       
       default:
+        if (strcmp(text_size, max_text_size[ecl]) == 0)
+        {
+          break;
+        }
+        
         vram_buf[0] = MSB(vram_ptr) | NT_UPD_HORZ;
         vram_buf[1] = LSB(vram_ptr);
         vram_buf[2] = 2;
         vram_buf[3] = key;
         vram_buf[4] = CHR_CURSOR;
-        vram_buf[5] = NT_UPD_EOF;
         ++vram_ptr;
+
+        for (text_size_ptr = &text_size[3]; ; --text_size_ptr)
+        {
+          if (*text_size_ptr != '9')
+          {
+            ++*text_size_ptr;
+            break;
+          }
+          *text_size_ptr = '0';
+        }
+        vram_buf[5] = MSB(TEXT_SIZE_VRAM) | NT_UPD_HORZ;
+        vram_buf[6] = LSB(TEXT_SIZE_VRAM);
+        vram_buf[7] = 4;
+        memcpy(&vram_buf[8], text_size, sizeof(text_size));
+        vram_buf[8 + sizeof(text_size)] = NT_UPD_EOF;
 
         *buf_ptr = key;
         ++buf_ptr;
