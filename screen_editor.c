@@ -10,7 +10,7 @@ static const char palette[] = {
 };
 static const uint8_t status_bar_nametable[32 * 3 + 1] =
   "F1 ECL ? F2 MASK ? F3 bECL ?    "
-  "F8 RUN PAGE 00 CHAR 0000/????   "
+  "F8 RUN PAGE 1 CHAR 0000/????    "
   "________________________________"
   "\x7f"
   ;
@@ -26,8 +26,8 @@ static const uint8_t max_text_size[4][4] = {
 #define ECL_VRAM NTADR_A(7, 0)
 #define MASK_VRAM NTADR_A(17, 0)
 #define BECL_VRAM NTADR_A(27, 0)
-#define TEXT_SIZE_VRAM NTADR_A(20, 1)
-#define MAX_TEXT_SIZE_VRAM NTADR_A(25, 1)
+#define TEXT_SIZE_VRAM NTADR_A(19, 1)
+#define MAX_TEXT_SIZE_VRAM NTADR_A(24, 1)
 
 static uint8_t key, last_key;
 static uint8_t vram_buf[16];
@@ -160,7 +160,7 @@ void screen_editor (void)
         break;
       
       default:
-        if (strcmp(text_size, (const char*)max_text_size[ecl]) == 0)
+        if (strcmp(text_size, (const char*)max_text_size[ecl]) >= 0)
         {
           break;
         }
