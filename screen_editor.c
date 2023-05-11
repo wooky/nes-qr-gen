@@ -28,10 +28,8 @@ static const uint8_t page_size[4] = "0864"; // 32 * (30 - 3)
 #define TEXT_SIZE_VRAM NTADR_A(12, 1)
 #define MAX_TEXT_SIZE_VRAM NTADR_A(17, 1)
 
-static uint8_t key, last_key;
 static uint8_t vram_buf[16];
 static uint16_t vram_ptr;
-static uint8_t key_debounce;
 static uint8_t *buf_ptr_start, *buf_ptr, *buf_ptr_tmp;
 static uint8_t text_size[4], *text_size_ptr;
 
@@ -92,138 +90,129 @@ void fastcall _process_page (void)
 
   while (1)
   {
-    key = keyboard_poll();
-    if (key != last_key || key_debounce == 12)
+    keyboard_poll();
+    switch (keyboard_key_pressed)
     {
-      switch (key)
+    case KEYBOARD_NO_KEY:
+      break;
+
+    case KEYBOARD_F1:
+      ++ecl;
+      if (ecl == sizeof(ecl_values))
       {
-      case KEYBOARD_NO_KEY:
-        break;
-
-      case KEYBOARD_F1:
-        ++ecl;
-        if (ecl == sizeof(ecl_values))
-        {
-          ecl = 0;
-        }
-        
-        vram_buf[0] = MSB(ECL_VRAM);
-        vram_buf[1] = LSB(ECL_VRAM);
-        vram_buf[2] = ecl_values[ecl];
-        vram_buf[3] = MSB(MAX_TEXT_SIZE_VRAM) | NT_UPD_HORZ;
-        vram_buf[4] = LSB(MAX_TEXT_SIZE_VRAM);
-        vram_buf[5] = sizeof(max_text_size[0]);
-        memcpy(&vram_buf[6], max_text_size[ecl], sizeof(max_text_size[0]));
-        vram_buf[6 + sizeof(max_text_size[0])] = NT_UPD_EOF;
-        break;
-
-      case KEYBOARD_F2:
-        vram_buf[0] = MSB(MASK_VRAM);
-        vram_buf[1] = LSB(MASK_VRAM);
-        vram_buf[2] = _mask_char(1);
-        vram_buf[3] = NT_UPD_EOF;
-        break;
-
-      case KEYBOARD_F3:
-        boostEcl ^= 1;
-        vram_buf[0] = MSB(BECL_VRAM);
-        vram_buf[1] = LSB(BECL_VRAM);
-        vram_buf[2] = bool_values[boostEcl];
-        vram_buf[3] = NT_UPD_EOF;
-        break;
-
-      case KEYBOARD_F8:
-        ppu_off();
-        set_vram_update(NULL);
-        dataLen = buf_ptr - tempBuffer;
-        screen_qr();
-        return;
-
-      case KEYBOARD_BACKSPACE:
-        if (buf_ptr == tempBuffer)
-        {
-          break;
-        }
-
-        for (text_size_ptr = &text_size[3]; ; --text_size_ptr)
-        {
-          if (*text_size_ptr != '0')
-          {
-            --*text_size_ptr;
-            break;
-          }
-          *text_size_ptr = '9';
-        }
-
-        --buf_ptr;
-        if (buf_ptr == buf_ptr_start)
-        {
-          buf_ptr_start = tempBuffer;
-          _process_page();
-          return;
-        }
-        
-        --vram_ptr;
-        vram_buf[0] = MSB(vram_ptr) | NT_UPD_HORZ;
-        vram_buf[1] = LSB(vram_ptr);
-        vram_buf[2] = 2;
-        vram_buf[3] = CHR_CURSOR;
-        vram_buf[4] = ' ';
-        
-        vram_buf[5] = MSB(TEXT_SIZE_VRAM) | NT_UPD_HORZ;
-        vram_buf[6] = LSB(TEXT_SIZE_VRAM);
-        vram_buf[7] = 4;
-        memcpy(&vram_buf[8], text_size, sizeof(text_size));
-        vram_buf[8 + sizeof(text_size)] = NT_UPD_EOF;
-        
-        break;
-      
-      default:
-        if (strncmp((const char*)text_size, (const char*)max_text_size[ecl], sizeof(text_size)) >= 0)
-        {
-          break;
-        }
-
-        for (text_size_ptr = &text_size[3]; ; --text_size_ptr)
-        {
-          if (*text_size_ptr != '9')
-          {
-            ++*text_size_ptr;
-            break;
-          }
-          *text_size_ptr = '0';
-        }
-
-        *buf_ptr = key;
-        ++buf_ptr;
-
-        if (strncmp((const char*)text_size, (const char*)page_size, sizeof(text_size)) == 0)
-        {
-          buf_ptr_start = buf_ptr - 1;
-          _process_page();
-          return;
-        }
-        
-        vram_buf[0] = MSB(vram_ptr) | NT_UPD_HORZ;
-        vram_buf[1] = LSB(vram_ptr);
-        vram_buf[2] = 2;
-        vram_buf[3] = key;
-        vram_buf[4] = CHR_CURSOR;
-        ++vram_ptr;
-
-        vram_buf[5] = MSB(TEXT_SIZE_VRAM) | NT_UPD_HORZ;
-        vram_buf[6] = LSB(TEXT_SIZE_VRAM);
-        vram_buf[7] = 4;
-        memcpy(&vram_buf[8], text_size, sizeof(text_size));
-        vram_buf[8 + sizeof(text_size)] = NT_UPD_EOF;
+        ecl = 0;
       }
-      key_debounce = 0;
+      
+      vram_buf[0] = MSB(ECL_VRAM);
+      vram_buf[1] = LSB(ECL_VRAM);
+      vram_buf[2] = ecl_values[ecl];
+      vram_buf[3] = MSB(MAX_TEXT_SIZE_VRAM) | NT_UPD_HORZ;
+      vram_buf[4] = LSB(MAX_TEXT_SIZE_VRAM);
+      vram_buf[5] = sizeof(max_text_size[0]);
+      memcpy(&vram_buf[6], max_text_size[ecl], sizeof(max_text_size[0]));
+      vram_buf[6 + sizeof(max_text_size[0])] = NT_UPD_EOF;
+      break;
+
+    case KEYBOARD_F2:
+      vram_buf[0] = MSB(MASK_VRAM);
+      vram_buf[1] = LSB(MASK_VRAM);
+      vram_buf[2] = _mask_char(1);
+      vram_buf[3] = NT_UPD_EOF;
+      break;
+
+    case KEYBOARD_F3:
+      boostEcl ^= 1;
+      vram_buf[0] = MSB(BECL_VRAM);
+      vram_buf[1] = LSB(BECL_VRAM);
+      vram_buf[2] = bool_values[boostEcl];
+      vram_buf[3] = NT_UPD_EOF;
+      break;
+
+    case KEYBOARD_F8:
+      ppu_off();
+      set_vram_update(NULL);
+      dataLen = buf_ptr - tempBuffer;
+      screen_qr();
+      return;
+
+    case KEYBOARD_BACKSPACE:
+      if (buf_ptr == tempBuffer)
+      {
+        break;
+      }
+
+      for (text_size_ptr = &text_size[3]; ; --text_size_ptr)
+      {
+        if (*text_size_ptr != '0')
+        {
+          --*text_size_ptr;
+          break;
+        }
+        *text_size_ptr = '9';
+      }
+
+      --buf_ptr;
+      if (buf_ptr == buf_ptr_start)
+      {
+        buf_ptr_start = tempBuffer;
+        _process_page();
+        return;
+      }
+      
+      --vram_ptr;
+      vram_buf[0] = MSB(vram_ptr) | NT_UPD_HORZ;
+      vram_buf[1] = LSB(vram_ptr);
+      vram_buf[2] = 2;
+      vram_buf[3] = CHR_CURSOR;
+      vram_buf[4] = ' ';
+      
+      vram_buf[5] = MSB(TEXT_SIZE_VRAM) | NT_UPD_HORZ;
+      vram_buf[6] = LSB(TEXT_SIZE_VRAM);
+      vram_buf[7] = 4;
+      memcpy(&vram_buf[8], text_size, sizeof(text_size));
+      vram_buf[8 + sizeof(text_size)] = NT_UPD_EOF;
+      
+      break;
+    
+    default:
+      if (strncmp((const char*)text_size, (const char*)max_text_size[ecl], sizeof(text_size)) >= 0)
+      {
+        break;
+      }
+
+      for (text_size_ptr = &text_size[3]; ; --text_size_ptr)
+      {
+        if (*text_size_ptr != '9')
+        {
+          ++*text_size_ptr;
+          break;
+        }
+        *text_size_ptr = '0';
+      }
+
+      *buf_ptr = keyboard_key_pressed;
+      ++buf_ptr;
+
+      if (strncmp((const char*)text_size, (const char*)page_size, sizeof(text_size)) == 0)
+      {
+        buf_ptr_start = buf_ptr - 1;
+        _process_page();
+        return;
+      }
+      
+      vram_buf[0] = MSB(vram_ptr) | NT_UPD_HORZ;
+      vram_buf[1] = LSB(vram_ptr);
+      vram_buf[2] = 2;
+      vram_buf[3] = keyboard_key_pressed;
+      vram_buf[4] = CHR_CURSOR;
+      ++vram_ptr;
+
+      vram_buf[5] = MSB(TEXT_SIZE_VRAM) | NT_UPD_HORZ;
+      vram_buf[6] = LSB(TEXT_SIZE_VRAM);
+      vram_buf[7] = 4;
+      memcpy(&vram_buf[8], text_size, sizeof(text_size));
+      vram_buf[8 + sizeof(text_size)] = NT_UPD_EOF;
     }
-    else
-    {
-      ++key_debounce;
-    }
-    last_key = key;
 
     ppu_wait_nmi();
   }

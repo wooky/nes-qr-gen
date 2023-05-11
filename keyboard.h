@@ -10,7 +10,9 @@
 #define KEYBOARD_F8 '\004'
 #define KEYBOARD_BACKSPACE '\b'
 
+extern uint8_t keyboard_key_pressed;
+
 void fastcall keyboard_init (void);
-uint8_t fastcall keyboard_poll (void);
+void fastcall keyboard_poll (void);
 
 #endif // KEYBOARD_H_

@@ -90,7 +90,8 @@ void screen_qr (void)
   ppu_on_all();
   while (1)
   {
-    if (keyboard_poll() != KEYBOARD_NO_KEY)
+    keyboard_poll();
+    if (keyboard_key_pressed != KEYBOARD_NO_KEY)
     {
       break;
     }

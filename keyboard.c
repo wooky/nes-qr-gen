@@ -17,19 +17,26 @@ static const uint8_t keys[9][8] = {
   "\000\000\000\000\005\b \000",
 };
 
+uint8_t keyboard_key_pressed;
+static uint8_t debug;
+static uint8_t last_key_pressed;
+static uint8_t debounce_timer;
+
 static struct {
-  uint8_t key_pressed;
   uint8_t shift;
-  uint8_t key_idx;
   union {
-    uint8_t row;
+    struct {
+      uint8_t row;
+      uint8_t key_idx;
+      uint8_t key_polled;
+      uint8_t potential_key_pressed;
+      uint8_t col;
+    };
     uint8_t detection;
   };
-  uint8_t key_polled;
-  uint8_t potential_key_pressed;
-  uint8_t col;
-  uint8_t debug;
 } d;
+
+#define RETURN_KEY_PRESS(k) { keyboard_key_pressed = k; return; }
 
 static void _poll (void)
 {
@@ -49,7 +56,7 @@ static void _poll (void)
       }
       else
       {
-        d.key_pressed = d.potential_key_pressed;
+        keyboard_key_pressed = d.potential_key_pressed;
       }
     }
   }
@@ -57,12 +64,12 @@ static void _poll (void)
 
 void fastcall keyboard_init (void)
 {
-  d.debug = 0;
+  debug = 0;
 }
 
-uint8_t fastcall keyboard_poll (void)
+void fastcall keyboard_poll (void)
 {
-  d.key_pressed = KEYBOARD_NO_KEY;
+  keyboard_key_pressed = KEYBOARD_NO_KEY;
   d.shift = 0;
   d.key_idx = 0;
   *KEYBOARD_INPUT = 0x05;
@@ -75,48 +82,57 @@ uint8_t fastcall keyboard_poll (void)
     _poll();
   }
 
-  if (d.debug)
+  if (debug)
   {
-    if (d.key_pressed != KEYBOARD_NO_KEY)
+    if (keyboard_key_pressed != KEYBOARD_NO_KEY)
     {
-      d.debug = 0;
-      return KEYBOARD_NO_KEY;
+      debug = 0;
     }
-    d.debug ^= 0x20;
-    return d.debug;
+    else
+    {
+      debug ^= 0x20;
+    }
+    RETURN_KEY_PRESS(debug);
   }
 
   *KEYBOARD_INPUT = 0x04;
   d.detection = *KEYBOARD_OUTPUT & 0x1e;
   if (d.detection != 0x1e)
   {
-    return KEYBOARD_NO_KEY;
+    RETURN_KEY_PRESS(KEYBOARD_NO_KEY);
   }
   
   *KEYBOARD_INPUT = 0x00;
   d.detection = *KEYBOARD_OUTPUT & 0x1e;
   if (d.detection != 0x00)
   {
-    return KEYBOARD_NO_KEY;
+    RETURN_KEY_PRESS(KEYBOARD_NO_KEY);
   }
 
-  if (d.key_pressed == KEYBOARD_DEBUG)
+  if (keyboard_key_pressed == KEYBOARD_DEBUG)
   {
-    d.debug = 'X';
-    return 'X';
+    debug = 'X';
+    RETURN_KEY_PRESS('X');
   }
   
   if (d.shift)
   {
-    if (d.key_pressed >= 0x2c && d.key_pressed <= 0x3b)
+    if (keyboard_key_pressed >= 0x2c && keyboard_key_pressed <= 0x3b)
     {
-      d.key_pressed ^= 0x10;
+      keyboard_key_pressed ^= 0x10;
     }
-    else if (d.key_pressed >= 'a' && d.key_pressed <= 'z')
+    else if (keyboard_key_pressed >= 'a' && keyboard_key_pressed <= 'z')
     {
-      d.key_pressed ^= 0x20;
+      keyboard_key_pressed ^= 0x20;
     }
   }
+
+  if (keyboard_key_pressed == last_key_pressed && debounce_timer != 12)
+  {
+    ++debounce_timer;
+    RETURN_KEY_PRESS(KEYBOARD_NO_KEY);
+  }
   
-  return d.key_pressed;
+  last_key_pressed = keyboard_key_pressed;
+  debounce_timer = 0;
 }
