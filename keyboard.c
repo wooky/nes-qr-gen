@@ -3,6 +3,7 @@
 #define KEYBOARD_INPUT (uint8_t*)0x4016
 #define KEYBOARD_OUTPUT (uint8_t*)0x4017
 #define KEYBOARD_SHIFT '\t'
+#define KEYBOARD_DEBUG '\005'
 
 static const uint8_t keys[9][8] = {
   "][\n\004\000\\\t\000",
@@ -13,7 +14,7 @@ static const uint8_t keys[9][8] = {
   "drt\00345cf",
   "asw\0023ezx",
   "\000q\000\00121\000\t",
-  "\000\000\000\000\000\b \000",
+  "\000\000\000\000\005\b \000",
 };
 
 static struct {
@@ -27,6 +28,7 @@ static struct {
   uint8_t key_polled;
   uint8_t potential_key_pressed;
   uint8_t col;
+  uint8_t debug;
 } d;
 
 static void _poll (void)
@@ -53,6 +55,11 @@ static void _poll (void)
   }
 }
 
+void fastcall keyboard_init (void)
+{
+  d.debug = 0;
+}
+
 uint8_t fastcall keyboard_poll (void)
 {
   d.key_pressed = KEYBOARD_NO_KEY;
@@ -68,6 +75,17 @@ uint8_t fastcall keyboard_poll (void)
     _poll();
   }
 
+  if (d.debug)
+  {
+    if (d.key_pressed != KEYBOARD_NO_KEY)
+    {
+      d.debug = 0;
+      return KEYBOARD_NO_KEY;
+    }
+    d.debug ^= 0x20;
+    return d.debug;
+  }
+
   *KEYBOARD_INPUT = 0x04;
   d.detection = *KEYBOARD_OUTPUT & 0x1e;
   if (d.detection != 0x1e)
@@ -81,6 +99,12 @@ uint8_t fastcall keyboard_poll (void)
   {
     return KEYBOARD_NO_KEY;
   }
+
+  if (d.key_pressed == KEYBOARD_DEBUG)
+  {
+    d.debug = 'X';
+    return 'X';
+  }
   
   if (d.shift)
   {
@@ -90,7 +114,7 @@ uint8_t fastcall keyboard_poll (void)
     }
     else if (d.key_pressed >= 'a' && d.key_pressed <= 'z')
     {
-      d.key_pressed -= 0x20;
+      d.key_pressed ^= 0x20;
     }
   }
   

@@ -42,6 +42,7 @@ void main (void)
   ecl = qrcodegen_Ecc_LOW;
   mask = qrcodegen_Mask_0;
   boostEcl = false;
+  keyboard_init();
 
   screen_editor();
 }
