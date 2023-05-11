@@ -8,12 +8,10 @@
 static const char palette[] = {
   0x0f, 0x0f, 0x0f, 0x30,
 };
-static const uint8_t status_bar_nametable[32 * 3 + 1] =
+static const uint8_t status_bar_nametable[32 * 3] =
   "F1 ECL ? F2 MASK ? F3 bECL ?    "
-  "F8 RUN PAGE 1 CHAR 0000/????    "
-  "________________________________"
-  "\x7f"
-  ;
+  "F8 RUN CHAR ????/????           "
+  "________________________________";
 static const uint8_t ecl_values[4] = "LMQH";
 static const uint8_t bool_values[2] = "FT";
 static const uint8_t max_text_size[4][4] = {
@@ -22,20 +20,23 @@ static const uint8_t max_text_size[4][4] = {
   "0805",
   "0625",
 };
+static const uint8_t page_size[4] = "0864"; // 32 * (30 - 3)
 
 #define ECL_VRAM NTADR_A(7, 0)
 #define MASK_VRAM NTADR_A(17, 0)
 #define BECL_VRAM NTADR_A(27, 0)
-#define TEXT_SIZE_VRAM NTADR_A(19, 1)
-#define MAX_TEXT_SIZE_VRAM NTADR_A(24, 1)
+#define TEXT_SIZE_VRAM NTADR_A(12, 1)
+#define MAX_TEXT_SIZE_VRAM NTADR_A(17, 1)
 
 static uint8_t key, last_key;
 static uint8_t vram_buf[16];
 static uint16_t vram_ptr;
 static uint8_t key_debounce;
-static uint8_t *buf_ptr;
-static char text_size[4];
-static char *text_size_ptr;
+static uint8_t *buf_ptr_start, *buf_ptr, *buf_ptr_tmp;
+static uint8_t text_size[4], *text_size_ptr;
+
+void fastcall _process_page (void);
+uint8_t fastcall _mask_char (uint8_t delta);
 
 void main (void)
 {
@@ -45,16 +46,6 @@ void main (void)
   keyboard_init();
 
   screen_editor();
-}
-
-uint8_t _mask_char (uint8_t delta)
-{
-  mask += delta;
-  if (mask > qrcodegen_Mask_7)
-  {
-    mask = qrcodegen_Mask_AUTO;
-  }
-  return (mask == qrcodegen_Mask_AUTO) ? 'A' : mask + '0';
 }
 
 void screen_editor (void)
@@ -73,14 +64,29 @@ void screen_editor (void)
   vram_put(bool_values[boostEcl]);
   vram_adr(MAX_TEXT_SIZE_VRAM);
   vram_write(max_text_size[ecl], sizeof(max_text_size[0]));
-  vram_adr(NTADR_A(0, 0) + sizeof(status_bar_nametable));
-  vram_fill(0, NAMETABLE_B - NAMETABLE_A - sizeof(status_bar_nametable));
 
-  vram_ptr = NTADR_A(0, 3);
+  buf_ptr_start = buf_ptr = tempBuffer;
+  memfill(text_size, '0', sizeof(text_size));
+
+  _process_page();
+}
+
+void fastcall _process_page (void)
+{
+  ppu_off();
   vram_buf[0] = NT_UPD_EOF;
 
-  buf_ptr = tempBuffer;
-  memfill(text_size, '0', sizeof(text_size));
+  vram_adr(TEXT_SIZE_VRAM);
+  vram_write(text_size, sizeof(text_size));
+
+  vram_ptr = NTADR_A(0, 3);
+  vram_adr(NTADR_A(0, 0) + sizeof(status_bar_nametable));
+  for (buf_ptr_tmp = buf_ptr_start; buf_ptr_tmp != buf_ptr; ++buf_ptr_tmp, ++vram_ptr)
+  {
+    vram_put(*buf_ptr_tmp);
+  }
+  vram_put(0x7f);
+  vram_fill(0, NAMETABLE_B - vram_ptr - 1);
 
   ppu_on_all();
 
@@ -127,20 +133,17 @@ void screen_editor (void)
         break;
 
       case KEYBOARD_F8:
-        goto generate_qr;
+        ppu_off();
+        set_vram_update(NULL);
+        dataLen = buf_ptr - tempBuffer;
+        screen_qr();
+        return;
 
       case KEYBOARD_BACKSPACE:
         if (buf_ptr == tempBuffer)
         {
           break;
         }
-        
-        --vram_ptr;
-        vram_buf[0] = MSB(vram_ptr) | NT_UPD_HORZ;
-        vram_buf[1] = LSB(vram_ptr);
-        vram_buf[2] = 2;
-        vram_buf[3] = CHR_CURSOR;
-        vram_buf[4] = ' ';
 
         for (text_size_ptr = &text_size[3]; ; --text_size_ptr)
         {
@@ -151,27 +154,35 @@ void screen_editor (void)
           }
           *text_size_ptr = '9';
         }
+
+        --buf_ptr;
+        if (buf_ptr == buf_ptr_start)
+        {
+          buf_ptr_start = tempBuffer;
+          _process_page();
+          return;
+        }
+        
+        --vram_ptr;
+        vram_buf[0] = MSB(vram_ptr) | NT_UPD_HORZ;
+        vram_buf[1] = LSB(vram_ptr);
+        vram_buf[2] = 2;
+        vram_buf[3] = CHR_CURSOR;
+        vram_buf[4] = ' ';
+        
         vram_buf[5] = MSB(TEXT_SIZE_VRAM) | NT_UPD_HORZ;
         vram_buf[6] = LSB(TEXT_SIZE_VRAM);
         vram_buf[7] = 4;
         memcpy(&vram_buf[8], text_size, sizeof(text_size));
         vram_buf[8 + sizeof(text_size)] = NT_UPD_EOF;
-
-        --buf_ptr;
+        
         break;
       
       default:
-        if (strcmp(text_size, (const char*)max_text_size[ecl]) >= 0)
+        if (strncmp((const char*)text_size, (const char*)max_text_size[ecl], sizeof(text_size)) >= 0)
         {
           break;
         }
-        
-        vram_buf[0] = MSB(vram_ptr) | NT_UPD_HORZ;
-        vram_buf[1] = LSB(vram_ptr);
-        vram_buf[2] = 2;
-        vram_buf[3] = key;
-        vram_buf[4] = CHR_CURSOR;
-        ++vram_ptr;
 
         for (text_size_ptr = &text_size[3]; ; --text_size_ptr)
         {
@@ -182,14 +193,29 @@ void screen_editor (void)
           }
           *text_size_ptr = '0';
         }
+
+        *buf_ptr = key;
+        ++buf_ptr;
+
+        if (strncmp((const char*)text_size, (const char*)page_size, sizeof(text_size)) == 0)
+        {
+          buf_ptr_start = buf_ptr - 1;
+          _process_page();
+          return;
+        }
+        
+        vram_buf[0] = MSB(vram_ptr) | NT_UPD_HORZ;
+        vram_buf[1] = LSB(vram_ptr);
+        vram_buf[2] = 2;
+        vram_buf[3] = key;
+        vram_buf[4] = CHR_CURSOR;
+        ++vram_ptr;
+
         vram_buf[5] = MSB(TEXT_SIZE_VRAM) | NT_UPD_HORZ;
         vram_buf[6] = LSB(TEXT_SIZE_VRAM);
         vram_buf[7] = 4;
         memcpy(&vram_buf[8], text_size, sizeof(text_size));
         vram_buf[8 + sizeof(text_size)] = NT_UPD_EOF;
-
-        *buf_ptr = key;
-        ++buf_ptr;
       }
       key_debounce = 0;
     }
@@ -201,10 +227,14 @@ void screen_editor (void)
 
     ppu_wait_nmi();
   }
+}
 
-generate_qr:
-  ppu_off();
-  set_vram_update(NULL);
-  dataLen = buf_ptr - tempBuffer;
-  screen_qr();
+uint8_t fastcall _mask_char (uint8_t delta)
+{
+  mask += delta;
+  if (mask > qrcodegen_Mask_7)
+  {
+    mask = qrcodegen_Mask_AUTO;
+  }
+  return (mask == qrcodegen_Mask_AUTO) ? 'A' : mask + '0';
 }
