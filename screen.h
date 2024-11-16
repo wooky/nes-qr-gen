@@ -11,6 +11,7 @@ extern enum qrcodegen_Ecc ecl;
 extern enum qrcodegen_Mask mask;
 extern bool boostEcl;
 
+void screen_about (void);
 void screen_editor (void);
 void screen_qr (void);
 

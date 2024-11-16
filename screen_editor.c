@@ -10,7 +10,7 @@ static const char palette[] = {
 };
 static const uint8_t status_bar_nametable[32 * 3] =
   "F1 ECL ? F2 MASK ? F3 bECL ?    "
-  "F8 RUN CHAR ????/????           "
+  "F8 RUN F6 ABOUT   CHAR ????/????"
   "________________________________";
 static const uint8_t ecl_values[4] = "LMQH";
 static const uint8_t bool_values[2] = "FT";
@@ -25,8 +25,8 @@ static const uint8_t page_size[4] = "0864"; // 32 * (30 - 3)
 #define ECL_VRAM NTADR_A(7, 0)
 #define MASK_VRAM NTADR_A(17, 0)
 #define BECL_VRAM NTADR_A(27, 0)
-#define TEXT_SIZE_VRAM NTADR_A(12, 1)
-#define MAX_TEXT_SIZE_VRAM NTADR_A(17, 1)
+#define TEXT_SIZE_VRAM NTADR_A(23, 1)
+#define MAX_TEXT_SIZE_VRAM NTADR_A(28, 1)
 
 static uint8_t vram_buf[16];
 static uint16_t vram_ptr;
@@ -133,6 +133,12 @@ void fastcall _process_page (void)
       set_vram_update(NULL);
       dataLen = buf_ptr - tempBuffer;
       screen_qr();
+      return;
+
+    case KEYBOARD_F6:
+      ppu_off();
+      set_vram_update(NULL);
+      screen_about();
       return;
 
     case KEYBOARD_BACKSPACE:

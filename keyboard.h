@@ -8,6 +8,7 @@
 #define KEYBOARD_F2 '\002'
 #define KEYBOARD_F3 '\003'
 #define KEYBOARD_F8 '\004'
+#define KEYBOARD_F6 '\006'
 #define KEYBOARD_BACKSPACE '\b'
 
 extern uint8_t keyboard_key_pressed;
