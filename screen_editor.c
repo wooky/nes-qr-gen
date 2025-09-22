@@ -1,6 +1,7 @@
 #include "keyboard.h"
 #include "build/chr.h"
 #include "screen.h"
+#include "mmc3.h"
 #include <string.h>
 
 #define CHR_CURSOR 0x7f
@@ -38,6 +39,7 @@ uint8_t fastcall _mask_char (uint8_t delta);
 
 void main (void)
 {
+  mmc3_prg_ram_enable();
   ecl = qrcodegen_Ecc_LOW;
   mask = qrcodegen_Mask_0;
   boostEcl = false;

@@ -1,6 +1,7 @@
 #include "neslib.h"
 #include "screen.h"
 #include "keyboard.h"
+#include "mmc3.h"
 
 struct
 {
@@ -29,12 +30,9 @@ void screen_qr (void)
   vram_adr(0x0000);
   vram_fill(0, NAMETABLE_B);
 
-  // Set upper 16KB PRG to bank 4
-  *(unsigned char*)0xe000 = 2 | 0;
-  *(unsigned char*)0xe000 = 4 | 0;
-  *(unsigned char*)0xe000 = 8 | 1;
-  *(unsigned char*)0xe000 = 16 | 0;
-  *(unsigned char*)0xe000 = 32 | 0;
+  // Set upper 16KB PRG to banks 8 and 9
+  mcc3_prg_bank(0, 8);
+  mcc3_prg_bank(1, 9);
 
   data.state = qrcodegen_encodeBinary();
   if (!data.state)
