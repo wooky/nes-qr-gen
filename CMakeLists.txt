@@ -13,7 +13,7 @@ set(CMAKE_C_COMPILE_OBJECT "<CMAKE_C_COMPILER> <DEFINES> <INCLUDES> <FLAGS> -o <
 add_link_options(
   -C "${CMAKE_CURRENT_SOURCE_DIR}/mapper.cfg"
   -Ln "${CMAKE_CURRENT_BINARY_DIR}/labels.txt"
-  -Wl --dbgfile,"${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}.dbg"
+  -Wl --dbgfile,${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}.dbg
 )
 
 find_package(Python REQUIRED)
