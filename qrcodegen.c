@@ -91,7 +91,7 @@ static uint8_t numCharCountBits();
 
 /*---- Private tables of constants ----*/
 
-#pragma rodata-name("BANK4")
+#pragma rodata-name("QRCODEGEN")
 
 // Sentinel value for use in only some functions.
 #define LENGTH_OVERFLOW -1
@@ -137,7 +137,7 @@ uint8_t tempBuffer[BUFFER_SIZE];
 uint8_t qrcode[BUFFER_SIZE];
 
 #pragma bss-name (pop)
-#pragma code-name ("BANK4")
+#pragma code-name ("QRCODEGEN")
 
 size_t dataLen;
 enum qrcodegen_Ecc ecl;
