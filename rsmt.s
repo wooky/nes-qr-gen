@@ -1,6 +1,5 @@
-  .export _reedSolomonMultiply
+  .export _reedSolomonMultiply16
   .importzp ptr1
-  .import popa
 
   .feature org_per_seg
 
@@ -279,11 +278,11 @@
   .segment "CODE"
   .reloc
 
-; uint8_t __fastcall__ reedSolomonMultiply(uint8_t x, uint8_t y)
-_reedSolomonMultiply:
+; uint8_t __fastcall__ reedSolomonMultiply16(uint16_t yx)
+_reedSolomonMultiply16:
   ; A is the y-position
   ; Upper 2 bits give the bank
-  tax
+  tay
   rol
   rol
   rol
@@ -300,14 +299,13 @@ _reedSolomonMultiply:
 
   ; Store y-position as upper byte of index, truncating the 2 MSB
   ; Remember we need to index into the upper 16KB PRG, i.e. from address $8000
-  txa
+  tya
   and #%00111111
   adc #$80
   sta ptr1+1
 
-  ; Pop x-position from stack and store as lower byte of index
-  jsr popa
-  sta ptr1
+  ; Store x-position as lower byte of index
+  stx ptr1
 
   ; Retrieve value from table
   ldy #$00

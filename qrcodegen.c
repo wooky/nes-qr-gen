@@ -63,7 +63,8 @@ testable int getNumRawDataModules();
 
 testable void reedSolomonComputeDivisor(int degree, uint8_t result[]);
 testable void reedSolomonComputeRemainder();
-extern uint8_t __fastcall__ reedSolomonMultiply(uint8_t x, uint8_t y);
+extern uint8_t __fastcall__ reedSolomonMultiply16(uint16_t yx);
+#define reedSolomonMultiply(x, y) reedSolomonMultiply16((x << 8) | y)
 
 testable void initializeFunctionModules(uint8_t buf[]);
 static void drawLightFunctionModules();
@@ -147,8 +148,6 @@ static size_t bitLength;
 static int bitLen;
 static uint8_t version;
 static uint8_t alignPatPos[7];
-
-extern uint8_t fastcall qr_reed_solomon_multiply(uint16_t adr);
 
 static struct {
 	union {
