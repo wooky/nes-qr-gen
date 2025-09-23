@@ -8,9 +8,10 @@
 	.export _ppu_off,_ppu_on_all,_ppu_on_bg,_ppu_on_spr,_ppu_mask,_ppu_system
 	.export _oam_clear,_oam_size,_oam_spr
 	.export _ppu_wait_frame,_ppu_wait_nmi
+	.export _bank_spr,_bank_bg
 	.export _vram_read,_vram_write
 	.export _pad_poll,_pad_trigger,_pad_state
-	.export _vram_adr,_vram_put,_vram_fill,_vram_inc
+	.export _vram_adr,_vram_put,_vram_fill,_vram_inc,_vram_unrle
 	.export _set_vram_update,_flush_vram_update
 	.export _memfill,_delay
 	.export _get_ppu_ctrl_var,_set_ppu_ctrl_var
@@ -102,6 +103,14 @@ nmi:
 
 @skipAll:
 
+	lda <IRQ_LATCH
+	beq @skipIrq
+	sta $c000
+	sta $c001
+	sta $e001
+
+@skipIrq:
+
 	lda <PPU_MASK_VAR
 	sta PPU_MASK
 
@@ -115,17 +124,13 @@ nmi:
 
 @skipNtsc:
 
-	; jsr FamiToneUpdate
-
 	pla
 	tay
 	pla
 	tax
 	pla
 
-irq:
-
-    rti
+  rti
 
 
 
@@ -446,6 +451,98 @@ _ppu_wait_nmi:
 	beq @1
 	rts
 
+
+
+;void __fastcall__ vram_unrle(const unsigned char *data);
+
+_vram_unrle:
+
+	tay
+	stx <RLE_HIGH
+	lda #0
+	sta <RLE_LOW
+
+	lda (RLE_LOW),y
+	sta <RLE_TAG
+	iny
+	bne @1
+	inc <RLE_HIGH
+
+@1:
+
+	lda (RLE_LOW),y
+	iny
+	bne @11
+	inc <RLE_HIGH
+
+@11:
+
+	cmp <RLE_TAG
+	beq @2
+	sta PPU_DATA
+	sta <RLE_BYTE
+	bne @1
+
+@2:
+
+	lda (RLE_LOW),y
+	beq @4
+	iny
+	bne @21
+	inc <RLE_HIGH
+
+@21:
+
+	tax
+	lda <RLE_BYTE
+
+@3:
+
+	sta PPU_DATA
+	dex
+	bne @3
+	beq @1
+
+@4:
+
+	rts
+
+
+
+;void __fastcall__ bank_spr(unsigned char n);
+
+_bank_spr:
+
+	and #$01
+	asl a
+	asl a
+	asl a
+	sta <TEMP
+	lda <PPU_CTRL_VAR
+	and #%11110111
+	ora <TEMP
+	sta <PPU_CTRL_VAR
+
+	rts
+
+
+
+;void __fastcall__ bank_bg(unsigned char n);
+
+_bank_bg:
+
+	and #$01
+	asl a
+	asl a
+	asl a
+	asl a
+	sta <TEMP
+	lda <PPU_CTRL_VAR
+	and #%11101111
+	ora <TEMP
+	sta <PPU_CTRL_VAR
+
+	rts
 
 
 ;void __fastcall__ vram_read(unsigned char *dst,unsigned int size);
@@ -869,5 +966,3 @@ palBrightTable8:
 	.byte $30,$30,$30,$30,$30,$30,$30,$30,$30,$30,$30,$30,$30,$30,$30,$30
 	.byte $30,$30,$30,$30,$30,$30,$30,$30,$30,$30,$30,$30,$30,$30,$30,$30
 	.byte $30,$30,$30,$30,$30,$30,$30,$30,$30,$30,$30,$30,$30,$30,$30,$30
-
-	; .include "famitone2.sinc"

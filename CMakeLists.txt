@@ -108,15 +108,25 @@ project(qrdemo LANGUAGES C ASM)
 
 set(NES_QR_VERSION "master" CACHE STRING "Version")
 add_compile_definitions(NES_QR_VERSION=${NES_QR_VERSION})
+
+set(CRT0_S "${CMAKE_CURRENT_SOURCE_DIR}/crt0.s")
+set(CRT0_DEPENDS
+  "${CMAKE_CURRENT_SOURCE_DIR}/neslib.s"
+  "${CMAKE_CURRENT_SOURCE_DIR}/qrirq.s"
+)
+set_source_files_properties(${CRT0_S} PROPERTIES
+  OBJECT_DEPENDS "${CRT0_DEPENDS}"
+)
+
 add_executable(${PROJECT_NAME}
+  "${CMAKE_CURRENT_SOURCE_DIR}/ascii.chr"
   "${CMAKE_CURRENT_SOURCE_DIR}/keyboard.c"
   "${CMAKE_CURRENT_SOURCE_DIR}/qrcodegen.c"
-  "${CMAKE_CURRENT_SOURCE_DIR}/screen_editor.c"
-  "${CMAKE_CURRENT_SOURCE_DIR}/screen_qr.c"
-  "${CMAKE_CURRENT_SOURCE_DIR}/screen_about.c"
   "${CMAKE_CURRENT_SOURCE_DIR}/rsmt.s"
-  "${CMAKE_CURRENT_SOURCE_DIR}/crt0.s"
-  "${CMAKE_CURRENT_SOURCE_DIR}/ascii.chr"
+  "${CMAKE_CURRENT_SOURCE_DIR}/screen_editor.c"
+  "${CMAKE_CURRENT_SOURCE_DIR}/screen_about.c"
+  "${CMAKE_CURRENT_SOURCE_DIR}/screen_qr.c"
+  "${CRT0_S}"
 )
 set_target_properties(${PROJECT_NAME} PROPERTIES
   LINK_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/mapper.cfg"

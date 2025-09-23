@@ -40,6 +40,8 @@ uint8_t fastcall _mask_char (uint8_t delta);
 void main (void)
 {
   mmc3_prg_ram_enable();
+  bank_bg(0);
+  bank_spr(1);
   ecl = qrcodegen_Ecc_LOW;
   mask = qrcodegen_Mask_0;
   boostEcl = false;
@@ -134,8 +136,6 @@ void fastcall _process_page (void)
       break;
 
     case KEYBOARD_F8:
-      ppu_off();
-      set_vram_update(NULL);
       dataLen = buf_ptr - tempBuffer;
       screen_qr();
       return;

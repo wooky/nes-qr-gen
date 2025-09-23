@@ -52,6 +52,7 @@ PAD_STATET: 		.res 2
 PPU_CTRL_VAR:		.res 1
 PPU_CTRL_VAR1:		.res 1
 PPU_MASK_VAR: 		.res 1
+IRQ_LATCH:				.res 1
 
 TEMP: 			.res 11
 
@@ -61,6 +62,11 @@ PTR			=TEMP	;word
 LEN			=TEMP+2	;word
 SRC			=TEMP+7	;word
 DST			=TEMP+9	;word
+
+RLE_LOW			=TEMP
+RLE_HIGH		=TEMP+1
+RLE_TAG			=TEMP+2
+RLE_BYTE		=TEMP+3
 
 
 
@@ -166,6 +172,10 @@ clearRAM:
 	lda #%00000110
 	sta <PPU_MASK_VAR
 
+	; disable APU frame counter
+	lda #$40
+	sta PPU_FRAMECNT
+
 waitSync3:
 	lda <FRAME_CNT1
 @1:
@@ -191,6 +201,7 @@ detectNTSC:
 	; .include "display.sinc"
 
 	.include "neslib.s"
+	.include "qrirq.s"
 
 .segment "VECTORS"
 

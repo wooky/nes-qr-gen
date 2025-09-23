@@ -2,36 +2,123 @@
 #include "screen.h"
 #include "keyboard.h"
 #include "mmc3.h"
+#include "qrirq.h"
+
+#pragma bss-name (push, "ZEROPAGE")
 
 struct
 {
-  uint8_t size;
-  uint8_t coarse_y, coarse_x;
-  
   union
   {
     uint8_t state;
     struct
     {
-      uint8_t tile_id, tile_count;
-    };
-    struct
-    {
-      uint8_t fine_y;
-      uint16_t qr_adr;
-      uint8_t pixel_row;
+      uint8_t qr_size;
+      uint8_t coarse_y;
+      uint8_t chr_bank;
+
+      uint16_t vram_adr;
+      uint8_t max_coarse_y;
+      uint8_t coarse_x, max_coarse_x;
+      uint8_t qr_y, max_qr_y;
+      uint8_t qr_x, max_qr_x;
+      uint8_t tile_data;
     };
   };
 } data;
 
+#pragma bss-name (pop)
+
+#define COLS_PER_CHUNK 23
+#define ROWS_PER_CHUNK 11
+#define TOP_OF_NAMETABLE 1
+#define LEFT_OF_NAMETABLE 1
+
+const unsigned char error_message[] = "ERROR: buffer overflow";
+const unsigned char qr_chunk_top_nametable[] = {
+0x01,0x02,0x03,0x04,0x05,0x06,0x07,0x08,0x09,0x0a,0x0b,0x0c,0x0d,0x0e,
+0x0f,0x10,0x11,0x12,0x13,0x14,0x15,0x16,0x17
+};
+const unsigned char qr_chunk_rle_nametable[]={
+0xfe,0x00,0xfe,0x08,0x18,0x19,0x1a,0x1b,
+0x1c,0x1d,0x1e,0x1f,0x20,0x21,0x22,0x23,0x24,0x25,0x26,0x27,0x28,0x29,0x2a,0x2b,
+0x2c,0x2d,0x2e,0x00,0xfe,0x08,0x2f,0x30,0x31,0x32,0x33,0x34,0x35,0x36,0x37,0x38,
+0x39,0x3a,0x3b,0x3c,0x3d,0x3e,0x3f,0x40,0x41,0x42,0x43,0x44,0x45,0x00,0xfe,0x08,
+0x46,0x47,0x48,0x49,0x4a,0x4b,0x4c,0x4d,0x4e,0x4f,0x50,0x51,0x52,0x53,0x54,0x55,
+0x56,0x57,0x58,0x59,0x5a,0x5b,0x5c,0x00,0xfe,0x08,0x5d,0x5e,0x5f,0x60,0x61,0x62,
+0x63,0x64,0x65,0x66,0x67,0x68,0x69,0x6a,0x6b,0x6c,0x6d,0x6e,0x6f,0x70,0x71,0x72,
+0x73,0x00,0xfe,0x08,0x74,0x75,0x76,0x77,0x78,0x79,0x7a,0x7b,0x7c,0x7d,0x7e,0x7f,
+0x80,0x81,0x82,0x83,0x84,0x85,0x86,0x87,0x88,0x89,0x8a,0x00,0xfe,0x08,0x8b,0x8c,
+0x8d,0x8e,0x8f,0x90,0x91,0x92,0x93,0x94,0x95,0x96,0x97,0x98,0x99,0x9a,0x9b,0x9c,
+0x9d,0x9e,0x9f,0xa0,0xa1,0x00,0xfe,0x08,0xa2,0xa3,0xa4,0xa5,0xa6,0xa7,0xa8,0xa9,
+0xaa,0xab,0xac,0xad,0xae,0xaf,0xb0,0xb1,0xb2,0xb3,0xb4,0xb5,0xb6,0xb7,0xb8,0x00,
+0xfe,0x08,0xb9,0xba,0xbb,0xbc,0xbd,0xbe,0xbf,0xc0,0xc1,0xc2,0xc3,0xc4,0xc5,0xc6,
+0xc7,0xc8,0xc9,0xca,0xcb,0xcc,0xcd,0xce,0xcf,0x00,0xfe,0x08,0xd0,0xd1,0xd2,0xd3,
+0xd4,0xd5,0xd6,0xd7,0xd8,0xd9,0xda,0xdb,0xdc,0xdd,0xde,0xdf,0xe0,0xe1,0xe2,0xe3,
+0xe4,0xe5,0xe6,0x00,0xfe,0x08,0xe7,0xe8,0xe9,0xea,0xeb,0xec,0xed,0xee,0xef,0xf0,
+0xf1,0xf2,0xf3,0xf4,0xf5,0xf6,0xf7,0xf8,0xf9,0xfa,0xfb,0xfc,0xfd,0x00,0xfe,0x06,
+0x00,0xfe,0x00
+};
+
+void _draw_chunk (void)
+{
+  // Select CHR-RAM banks corresponding to the chunk
+  mmc3_chr_bank(0, data.chr_bank);
+  data.chr_bank += 2;
+  mmc3_chr_bank(1, data.chr_bank);
+  data.chr_bank += 2;
+
+  // Zero out the CHR-RAM banks
+  vram_adr(0x0000);
+  vram_fill(0x00, NAMETABLE_A);
+
+  // Fill CHR-RAM with QR code modules
+  vram_adr(0x0010);
+  data.vram_adr = 0x0010;
+  data.max_coarse_y = data.coarse_y + ROWS_PER_CHUNK * 8;
+  if (data.max_coarse_y > data.qr_size)
+  {
+    data.max_coarse_y = data.qr_size;
+  }
+  for (; data.coarse_y < data.max_coarse_y; data.coarse_y += 8)
+  {
+    data.coarse_x = 0;
+    data.max_coarse_x = COLS_PER_CHUNK * 8;
+    if (data.max_coarse_x > data.qr_size)
+    {
+      data.max_coarse_x = data.qr_size;
+    }
+    for (; data.coarse_x < data.max_coarse_x; data.coarse_x += 8)
+    {
+      data.qr_y = data.coarse_y;
+      data.max_qr_y = data.qr_y + 8;
+      for (; data.qr_y < data.max_qr_y; ++data.qr_y)
+      {
+        data.tile_data = 0;
+        data.qr_x = data.coarse_x;
+        data.max_qr_x = data.qr_x + 8;
+        for (; data.qr_x < data.max_qr_x; ++data.qr_x)
+        {
+          data.tile_data <<= 1;
+          data.tile_data |= qrcodegen_getModule(data.qr_x, data.qr_y);
+        }
+        vram_put(data.tile_data);
+      }
+      // Skip the second bitplane
+      vram_fill(0, 8);
+    }
+    // Skip the rest of the tiles on this row, if any
+    data.vram_adr += (COLS_PER_CHUNK << 4);
+    vram_adr(data.vram_adr);
+  }
+}
 
 void screen_qr (void)
 {
-  // Select CHR RAM and clear it
-  mmc3_chr_bank(0, 0x40);
-  mmc3_chr_bank(1, 0x42);
-  vram_adr(0x0000);
-  vram_fill(0, NAMETABLE_B);
+  ppu_off();
+  set_vram_update(NULL);
+  vram_adr(NAMETABLE_A);
+  vram_fill(0x00, NAMETABLE_B - NAMETABLE_A);
 
   // Set upper 16KB PRG to banks 8 and 9, the QRCODEGEN banks
   mmc3_prg_bank(0, 8);
@@ -40,55 +127,32 @@ void screen_qr (void)
   data.state = qrcodegen_encodeBinary();
   if (!data.state)
   {
-    pal_col(0, 0x16);
+    vram_adr(NTADR_A(1, 1));
+    vram_write(error_message, sizeof(error_message) - 1);
   }
   else
   {
     pal_col(0, 0x30);
-    vram_adr(0x0010);
-    vram_fill(0xff, 8);
-    data.size = qrcodegen_getSize();
-    // round to next multiple of 8
-    if (data.size != 0)
-    {
-      data.size = (data.size & ~7) + 8;
-    }
+    data.qr_size = qrcodegen_getSize();
+    data.coarse_y = 0;
+    data.chr_bank = 0x40;
 
-    data.tile_id = 1;
-    data.tile_count = data.size / 8;
-    for (data.coarse_y = 1; data.coarse_y <= data.tile_count; ++data.coarse_y)
-    {
-      vram_adr(NTADR_A(1, data.coarse_y));
-      for (data.coarse_x = 1; data.coarse_x <= data.tile_count; ++data.coarse_x, ++data.tile_id)
-      {
-        vram_put(data.tile_id);
-      }
-    }
-    
-    vram_adr(0x0010);
-    for (data.coarse_y = 0; data.coarse_y < data.size; data.coarse_y += 8)
-    {
-      for (data.coarse_x = 0; data.coarse_x < data.size; data.coarse_x += 8)
-      {
-        // FIXME this will read out of bounds for the last row of tiles
-        for (data.fine_y = data.coarse_y; data.fine_y < data.coarse_y + 8; ++data.fine_y)
-        {
-          data.qr_adr = data.fine_y << 8;
-          data.qr_adr += data.coarse_x;
-          data.qr_adr >>= 3;
-          ++data.qr_adr;
-          data.pixel_row = qrcode[data.qr_adr];
-          data.pixel_row = (data.pixel_row & 0xF0) >> 4 | (data.pixel_row & 0x0F) << 4;
-          data.pixel_row = (data.pixel_row & 0xCC) >> 2 | (data.pixel_row & 0x33) << 2;
-          data.pixel_row = (data.pixel_row & 0xAA) >> 1 | (data.pixel_row & 0x55) << 1;
-          vram_put(data.pixel_row);
-        }
-        vram_fill(0x00, 8);
-      }
-    }
+    // Max size is 177 pixels, or 23 tiles. At 11 tiles per chunk, need to draw 3 chunks.
+    _draw_chunk();
+    vram_adr(NTADR_A(LEFT_OF_NAMETABLE, TOP_OF_NAMETABLE));
+    vram_write(qr_chunk_top_nametable, sizeof(qr_chunk_top_nametable));
+    vram_unrle(qr_chunk_rle_nametable);
+    _draw_chunk();
+    vram_adr(NTADR_A(LEFT_OF_NAMETABLE, TOP_OF_NAMETABLE + ROWS_PER_CHUNK));
+    vram_write(qr_chunk_top_nametable, sizeof(qr_chunk_top_nametable));
+    vram_unrle(qr_chunk_rle_nametable);
+    _draw_chunk();
+    vram_adr(NTADR_A(LEFT_OF_NAMETABLE, TOP_OF_NAMETABLE + ROWS_PER_CHUNK * 2));
+    vram_write(qr_chunk_top_nametable, sizeof(qr_chunk_top_nametable));
   }
   
   ppu_on_all();
+  irq_enable();
   while (1)
   {
     keyboard_poll();
@@ -96,8 +160,10 @@ void screen_qr (void)
     {
       break;
     }
+    ppu_wait_nmi();
   }
   
   ppu_off();
+  irq_disable();
   screen_editor();
 }

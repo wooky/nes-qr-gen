@@ -114,6 +114,14 @@ unsigned char __fastcall__ pad_state(unsigned char pad);
 
 
 
+// select current chr bank for sprites, 0..1
+void __fastcall__ bank_spr(unsigned char n);
+
+// select current chr bank for background, 0..1
+void __fastcall__ bank_bg(unsigned char n);
+
+
+
 // when display is enabled, vram access could only be done with this vram update system
 // the function sets a pointer to the update buffer that contains data and addresses
 // in a special format. It allows to write non-sequental bytes, as well as horizontal or
@@ -154,6 +162,10 @@ void __fastcall__ vram_read(unsigned char *dst, unsigned int size);
 
 // write a block to current address of vram, works only when rendering is turned off
 void __fastcall__ vram_write(const unsigned char *src, unsigned int size);
+
+
+// unpack RLE data to current address of vram, mostly used for nametables
+void __fastcall__ vram_unrle(const unsigned char *data);
 
 
 // like memset, but does not return anything
