@@ -136,8 +136,7 @@ static const int PENALTY_N4 = 10;
 uint8_t tempBuffer[BUFFER_SIZE];
 uint8_t qrcode[BUFFER_SIZE];
 
-#pragma bss-name (pop)
-#pragma code-name ("QRCODEGEN")
+#pragma bss-name (push, "ZEROPAGE")
 
 size_t dataLen;
 enum qrcodegen_Ecc ecl;
@@ -197,6 +196,8 @@ static struct {
 		bool dark;
 	} drawCodewords;
 } d;
+
+#pragma code-name ("QRCODEGEN")
 
 /*---- High-level QR Code encoding functions ----*/
 
