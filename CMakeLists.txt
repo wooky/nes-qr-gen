@@ -25,7 +25,6 @@ add_executable(${PROJECT_NAME}.nes
   "${CMAKE_CURRENT_SOURCE_DIR}/rsmt.s"
   "${CMAKE_CURRENT_SOURCE_DIR}/crt0.s"
   "${CMAKE_CURRENT_SOURCE_DIR}/ascii.chr"
-  ${CHR_S}
 )
 set_target_properties(${TARGET_NAME} PROPERTIES
   LINK_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/mapper.cfg"
