@@ -16,17 +16,6 @@ add_link_options(
   -Wl --dbgfile,${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}.dbg
 )
 
-find_package(Python REQUIRED)
-set(CHRGEN "${CMAKE_CURRENT_SOURCE_DIR}/chrgen.py")
-set(ASCII_CHR "${CMAKE_CURRENT_SOURCE_DIR}/ascii.chr")
-set(CHR_H "${CMAKE_CURRENT_BINARY_DIR}/chr.h")
-set(CHR_S "${CMAKE_CURRENT_BINARY_DIR}/chr.s")
-add_custom_command(
-  OUTPUT ${CHR_H} ${CHR_S}
-  COMMAND ${Python_EXECUTABLE} ${CHRGEN} ${ASCII_CHR} ${CHR_H} ${CHR_S}
-  DEPENDS ${CHRGEN} ${ASCII_CHR}
-)
-
 add_executable(${PROJECT_NAME}.nes
   "${CMAKE_CURRENT_SOURCE_DIR}/keyboard.c"
   "${CMAKE_CURRENT_SOURCE_DIR}/qrcodegen.c"
@@ -35,7 +24,7 @@ add_executable(${PROJECT_NAME}.nes
   "${CMAKE_CURRENT_SOURCE_DIR}/screen_about.c"
   "${CMAKE_CURRENT_SOURCE_DIR}/rsmt.s"
   "${CMAKE_CURRENT_SOURCE_DIR}/crt0.s"
-  "${CMAKE_CURRENT_SOURCE_DIR}/lz4vram.s"
+  "${CMAKE_CURRENT_SOURCE_DIR}/ascii.chr"
   ${CHR_S}
 )
 set_target_properties(${TARGET_NAME} PROPERTIES

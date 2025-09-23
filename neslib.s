@@ -6,16 +6,11 @@
 	.export _pal_all,_pal_bg,_pal_spr,_pal_col,_pal_clear
 	.export _pal_bright,_pal_spr_bright,_pal_bg_bright
 	.export _ppu_off,_ppu_on_all,_ppu_on_bg,_ppu_on_spr,_ppu_mask,_ppu_system
-	.export _oam_clear,_oam_size,_oam_spr,_oam_meta_spr,_oam_hide_rest
+	.export _oam_clear,_oam_size,_oam_spr
 	.export _ppu_wait_frame,_ppu_wait_nmi
-	.export _scroll,_split
-	.export _bank_spr,_bank_bg
 	.export _vram_read,_vram_write
-	; .export _music_play,_music_stop,_music_pause
-	.export _sfx_play,_sample_play
 	.export _pad_poll,_pad_trigger,_pad_state
-	.export _rand8,_rand16,_set_rand
-	.export _vram_adr,_vram_put,_vram_fill,_vram_inc,_vram_unrle
+	.export _vram_adr,_vram_put,_vram_fill,_vram_inc
 	.export _set_vram_update,_flush_vram_update
 	.export _memfill,_delay
 	.export _get_ppu_ctrl_var,_set_ppu_ctrl_var
@@ -101,11 +96,6 @@ nmi:
 	lda #0
 	sta PPU_ADDR
 	sta PPU_ADDR
-
-	lda <SCROLL_X
-	sta PPU_SCROLL
-	lda <SCROLL_Y
-	sta PPU_SCROLL
 
 	lda <PPU_CTRL_VAR
 	sta PPU_CTRL
@@ -416,84 +406,6 @@ _oam_spr:
 
 
 
-;unsigned char __fastcall__ oam_meta_spr(unsigned char x,unsigned char y,unsigned char sprid,const unsigned char *data);
-
-_oam_meta_spr:
-
-	sta <PTR
-	stx <PTR+1
-
-	ldy #2		;three popa calls replacement, performed in reversed order
-	lda (sp),y
-	dey
-	sta <SCRX
-	lda (sp),y
-	dey
-	sta <SCRY
-	lda (sp),y
-	tax
-
-@1:
-
-	lda (PTR),y		;x offset
-	cmp #$80
-	beq @2
-	iny
-	clc
-	adc <SCRX
-	sta OAM_BUF+3,x
-	lda (PTR),y		;y offset
-	iny
-	clc
-	adc <SCRY
-	sta OAM_BUF+0,x
-	lda (PTR),y		;tile
-	iny
-	sta OAM_BUF+1,x
-	lda (PTR),y		;attribute
-	iny
-	sta OAM_BUF+2,x
-	inx
-	inx
-	inx
-	inx
-	jmp @1
-
-@2:
-
-	lda <sp
-	adc #2			;carry is always set here, so it adds 3
-	sta <sp
-	bcc @3
-	inc <sp+1
-
-@3:
-
-	txa
-	ldx #$00
-	rts
-
-
-
-;void __fastcall__ oam_hide_rest(unsigned char sprid);
-
-_oam_hide_rest:
-
-	tax
-	lda #240
-
-@1:
-
-	sta OAM_BUF,x
-	inx
-	inx
-	inx
-	inx
-	bne @1
-	rts
-
-
-
 ;void __fastcall__ ppu_wait_frame(void);
 
 _ppu_wait_frame:
@@ -532,175 +444,6 @@ _ppu_wait_nmi:
 
 	cmp <FRAME_CNT1
 	beq @1
-	rts
-
-
-
-;void __fastcall__ vram_unrle(const unsigned char *data);
-
-_vram_unrle:
-
-	tay
-	stx <RLE_HIGH
-	lda #0
-	sta <RLE_LOW
-
-	lda (RLE_LOW),y
-	sta <RLE_TAG
-	iny
-	bne @1
-	inc <RLE_HIGH
-
-@1:
-
-	lda (RLE_LOW),y
-	iny
-	bne @11
-	inc <RLE_HIGH
-
-@11:
-
-	cmp <RLE_TAG
-	beq @2
-	sta PPU_DATA
-	sta <RLE_BYTE
-	bne @1
-
-@2:
-
-	lda (RLE_LOW),y
-	beq @4
-	iny
-	bne @21
-	inc <RLE_HIGH
-
-@21:
-
-	tax
-	lda <RLE_BYTE
-
-@3:
-
-	sta PPU_DATA
-	dex
-	bne @3
-	beq @1
-
-@4:
-
-	rts
-
-
-
-;void __fastcall__ scroll(unsigned int x,unsigned int y);
-
-_scroll:
-
-	sta <TEMP
-
-	txa
-	bne @1
-	lda <TEMP
-	cmp #240
-	bcs @1
-	sta <SCROLL_Y
-	lda #0
-	sta <TEMP
-	beq @2	;bra
-
-@1:
-
-	sec
-	lda <TEMP
-	sbc #240
-	sta <SCROLL_Y
-	lda #2
-	sta <TEMP
-
-@2:
-
-	jsr popax
-	sta <SCROLL_X
-	txa
-	and #$01
-	ora <TEMP
-	sta <TEMP
-	lda <PPU_CTRL_VAR
-	and #$fc
-	ora <TEMP
-	sta <PPU_CTRL_VAR
-	rts
-
-
-
-;;void __fastcall__ split(unsigned int x,unsigned int y);
-
-_split:
-
-	jsr popax
-	sta <SCROLL_X1
-	txa
-	and #$01
-	sta <TEMP
-	lda <PPU_CTRL_VAR
-	and #$fc
-	ora <TEMP
-	sta <PPU_CTRL_VAR1
-
-@3:
-
-	bit PPU_STATUS
-	bvs @3
-
-@4:
-
-	bit PPU_STATUS
-	bvc @4
-
-	lda <SCROLL_X1
-	sta PPU_SCROLL
-	lda #0
-	sta PPU_SCROLL
-	lda <PPU_CTRL_VAR1
-	sta PPU_CTRL
-
-	rts
-
-
-
-;void __fastcall__ bank_spr(unsigned char n);
-
-_bank_spr:
-
-	and #$01
-	asl a
-	asl a
-	asl a
-	sta <TEMP
-	lda <PPU_CTRL_VAR
-	and #%11110111
-	ora <TEMP
-	sta <PPU_CTRL_VAR
-
-	rts
-
-
-
-;void __fastcall__ bank_bg(unsigned char n);
-
-_bank_bg:
-
-	and #$01
-	asl a
-	asl a
-	asl a
-	asl a
-	sta <TEMP
-	lda <PPU_CTRL_VAR
-	and #%11101111
-	ora <TEMP
-	sta <PPU_CTRL_VAR
-
 	rts
 
 
@@ -782,57 +525,6 @@ _vram_write:
 	rts
 
 
-
-;void __fastcall__ music_play(unsigned char song);
-
-; _music_play=FamiToneMusicPlay
-
-
-
-;void __fastcall__ music_stop(void);
-
-; _music_stop=FamiToneMusicStop
-
-
-
-;void __fastcall__ music_pause(unsigned char pause);
-
-; _music_pause=FamiToneMusicPause
-
-
-
-;void __fastcall__ sfx_play(unsigned char sound,unsigned char channel);
-
-_sfx_play:
-
-.if(FT_SFX_ENABLE)
-
-	and #$03
-	tax
-	lda @sfxPriority,x
-	tax
-	jsr popa
-	jmp FamiToneSfxPlay
-
-@sfxPriority:
-
-	.byte FT_SFX_CH0,FT_SFX_CH1,FT_SFX_CH2,FT_SFX_CH3
-
-.else
-	rts
-.endif
-
-
-;void __fastcall__ sample_play(unsigned char sample);
-
-.if(FT_DPCM_ENABLE)
-_sample_play=FamiToneSamplePlay
-.else
-_sample_play:
-	rts
-.endif
-
-
 ;unsigned char __fastcall__ pad_poll(unsigned char pad);
 
 _pad_poll:
@@ -904,66 +596,6 @@ _pad_state:
 	tax
 	lda <PAD_STATE,x
 	ldx #$00
-	rts
-
-
-
-;unsigned char __fastcall__ rand8(void);
-;Galois random generator, found somewhere
-;out: A random number 0..255
-
-rand1:
-
-	lda <RAND_SEED
-	asl a
-	bcc @1
-	eor #$cf
-
-@1:
-
-	sta <RAND_SEED
-	rts
-
-rand2:
-
-	lda <RAND_SEED+1
-	asl a
-	bcc @1
-	eor #$d7
-
-@1:
-
-	sta <RAND_SEED+1
-	rts
-
-_rand8:
-
-	jsr rand1
-	jsr rand2
-	adc <RAND_SEED
-	ldx #$00
-	rts
-
-
-
-;unsigned int __fastcall__ rand16(void);
-
-_rand16:
-
-	jsr rand1
-	tax
-	jsr rand2
-
-	rts
-
-
-;void __fastcall__ set_rand(unsigned char seed);
-
-_set_rand:
-
-	sta <RAND_SEED
-	stx <RAND_SEED+1
-
 	rts
 
 

@@ -27,12 +27,15 @@ struct
 
 void screen_qr (void)
 {
+  // Select CHR RAM and clear it
+  mmc3_chr_bank(0, 0x40);
+  mmc3_chr_bank(1, 0x42);
   vram_adr(0x0000);
   vram_fill(0, NAMETABLE_B);
 
-  // Set upper 16KB PRG to banks 8 and 9
-  mcc3_prg_bank(0, 8);
-  mcc3_prg_bank(1, 9);
+  // Set upper 16KB PRG to banks 8 and 9, the QRCODEGEN banks
+  mmc3_prg_bank(0, 8);
+  mmc3_prg_bank(1, 9);
 
   data.state = qrcodegen_encodeBinary();
   if (!data.state)

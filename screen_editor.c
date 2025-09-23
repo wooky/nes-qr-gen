@@ -1,7 +1,7 @@
 #include "keyboard.h"
-#include "build/chr.h"
 #include "screen.h"
 #include "mmc3.h"
+#include "neslib.h"
 #include <string.h>
 
 #define CHR_CURSOR 0x7f
@@ -50,9 +50,12 @@ void main (void)
 
 void screen_editor (void)
 {
+  // Select CHR RAM and clear it
+  mmc3_chr_bank(0, 0x00);
+  mmc3_chr_bank(1, 0x02);
+
   pal_bg(palette);
   set_vram_update(vram_buf);
-  chr_data_ascii_vram_write();
 
   vram_adr(NTADR_A(0, 0));
   vram_write(status_bar_nametable, sizeof(status_bar_nametable));

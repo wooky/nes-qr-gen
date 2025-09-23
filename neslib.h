@@ -99,40 +99,6 @@ void __fastcall__ oam_clear(void);
 // set sprite display mode, 0 for 8x8 sprites, 1 for 8x16 sprites
 void __fastcall__ oam_size(unsigned char size);
 
-// set sprite in OAM buffer, chrnum is tile, attr is attribute, sprid is offset in OAM in bytes
-// returns sprid+4, which is offset for a next sprite
-unsigned char __fastcall__ oam_spr(unsigned char x, unsigned char y,
-					unsigned char chrnum, unsigned char attr,
-					unsigned char sprid);
-
-// set metasprite in OAM buffer
-// meta sprite is a const unsigned char array, it contains four bytes per sprite
-// in order x offset, y offset, tile, attribute
-// x=128 is end of a meta sprite
-// returns sprid+4, which is offset for a next sprite
-unsigned char __fastcall__ oam_meta_spr(unsigned char x, unsigned char y,
-					unsigned char sprid, const unsigned char *data);
-
-// hide all remaining sprites from given offset
-void __fastcall__ oam_hide_rest(unsigned char sprid);
-
-
-
-// play a music in FamiTone format
-void __fastcall__ music_play(unsigned char song);
-
-// stop music
-void __fastcall__ music_stop(void);
-
-// pause and unpause music
-void __fastcall__ music_pause(unsigned char pause);
-
-// play FamiTone sound effect on channel 0..3
-void __fastcall__ sfx_play(unsigned char sound, unsigned char channel);
-
-// play a DPCM sample, 1..63
-void __fastcall__ sample_play(unsigned char sample);
-
 
 
 // poll controller and return flags like PAD_LEFT etc, input is pad number (0 or 1)
@@ -145,34 +111,6 @@ unsigned char __fastcall__ pad_trigger(unsigned char pad);
 
 // get previous pad state without polling ports
 unsigned char __fastcall__ pad_state(unsigned char pad);
-
-
-// set scroll, including rhe top bits
-// it is always applied at beginning of a TV frame, not at the function call
-void __fastcall__ scroll(unsigned int x, unsigned int y);
-
-// set scroll after screen split invoked by the sprite 0 hit
-// warning: all CPU time between the function call and the actual split point will be wasted!
-// warning: the program loop has to fit into the frame time, ppu_wait_frame should not be used
-//          otherwise empty frames without split will be inserted, resulting in jumpy screen
-// warning: only X scroll could be changed in this version
-void __fastcall__ split(unsigned int x, unsigned int y);
-
-
-// select current chr bank for sprites, 0..1
-void __fastcall__ bank_spr(unsigned char n);
-
-// select current chr bank for background, 0..1
-void __fastcall__ bank_bg(unsigned char n);
-
-
-
-// get random number 0..255 or 0..65535
-unsigned char __fastcall__ rand8(void);
-unsigned int  __fastcall__ rand16(void);
-
-// set random seed
-void __fastcall__ set_rand(unsigned int seed);
 
 
 
@@ -218,30 +156,11 @@ void __fastcall__ vram_read(unsigned char *dst, unsigned int size);
 void __fastcall__ vram_write(const unsigned char *src, unsigned int size);
 
 
-// unpack RLE data to current address of vram, mostly used for nametables
-void __fastcall__ vram_unrle(const unsigned char *data);
-
-// unpack LZ4 data to this address
-void __fastcall__ vram_unlz4(const unsigned char *in, unsigned char *out,
-				const unsigned uncompressed_size);
-/*
-	Rough speeds for a full 1024 nametable:
-	- rle takes 0.5 frames
-	- uncompressed takes 1.3 frames
-	- lz4 takes 2.8 frames
-*/
-
-
 // like memset, but does not return anything
 void __fastcall__ memfill(void *dst, unsigned char value, unsigned int len);
 
 // delay for N frames
 void __fastcall__ delay(unsigned char frames);
-
-// display.sinc functions
-void __fastcall__ oam_clear_fast(void);
-void __fastcall__ oam_meta_spr_pal(unsigned char x,unsigned char y,unsigned char pal,const unsigned char *metasprite);
-void __fastcall__ oam_meta_spr_clip(signed int x,unsigned char y,const unsigned char *metasprite);
 
 
 

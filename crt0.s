@@ -2,13 +2,6 @@
 ; based on code by Groepaz/Hitmen <groepaz@gmx.net>, Ullrich von Bassewitz <uz@cc65.org>
 
 
-FT_DPCM_OFF			= $c000		;$c000..$ffc0, 64-byte steps
-FT_SFX_STREAMS			= 4		;number of sound effects played at once, 1..4
-
-.define FT_DPCM_ENABLE  0			;undefine to exclude all DMC code
-.define FT_SFX_ENABLE   0			;undefine to exclude all sound effects code
-
-
 
 	.export _exit,__STARTUP__:absolute=1
 	.import initlib,push0,popa,popax,_main,zerobss,copydata
@@ -24,14 +17,6 @@ FT_SFX_STREAMS			= 4		;number of sound effects played at once, 1..4
 	.include "zeropage.inc"
 
 
-
-FT_BASE_ADR		=$0100	;page in RAM, should be $xx00
-
-.define FT_THREAD       1	;undefine if you call sound effects in the same thread as sound update
-.define FT_PAL_SUPPORT	1   ;undefine to exclude PAL support
-.define FT_NTSC_SUPPORT	1   ;undefine to exclude NTSC support
-
-
 PPU_CTRL	=$2000
 PPU_MASK	=$2001
 PPU_STATUS	=$2002
@@ -42,7 +27,6 @@ PPU_ADDR	=$2006
 PPU_DATA	=$2007
 PPU_OAM_DMA	=$4014
 PPU_FRAMECNT	=$4017
-DMC_FREQ	=$4010
 CTRL_PORT1	=$4016
 CTRL_PORT2	=$4017
 
@@ -62,18 +46,12 @@ NAME_UPD_ENABLE: 	.res 1
 PAL_UPDATE: 		.res 1
 PAL_BG_PTR: 		.res 2
 PAL_SPR_PTR: 		.res 2
-SCROLL_X: 		.res 1
-SCROLL_Y: 		.res 1
-SCROLL_X1: 		.res 1
-SCROLL_Y1: 		.res 1
 PAD_STATE: 		.res 2		;one byte per controller
 PAD_STATEP: 		.res 2
 PAD_STATET: 		.res 2
 PPU_CTRL_VAR:		.res 1
 PPU_CTRL_VAR1:		.res 1
 PPU_MASK_VAR: 		.res 1
-RAND_SEED: 		.res 2
-FT_TEMP: 		.res 3
 
 TEMP: 			.res 11
 
@@ -81,16 +59,8 @@ PAD_BUF			=TEMP+1
 
 PTR			=TEMP	;word
 LEN			=TEMP+2	;word
-NEXTSPR			=TEMP+4
-SCRX			=TEMP+5
-SCRY			=TEMP+6
 SRC			=TEMP+7	;word
 DST			=TEMP+9	;word
-
-RLE_LOW			=TEMP
-RLE_HIGH		=TEMP+1
-RLE_TAG			=TEMP+2
-RLE_BYTE		=TEMP+3
 
 
 
@@ -122,7 +92,6 @@ _exit:
     txs
     inx
     stx PPU_MASK
-    stx DMC_FREQ
     stx PPU_CTRL		;no NMI
 
 initPPU:
@@ -212,30 +181,9 @@ detectNTSC:
 	dey
 	bne @1
 
-	lda PPU_STATUS
-	and #$80
-	sta <NTSC_MODE
-
 	jsr _ppu_off
 
-	ldx #<music_data
-	ldy #>music_data
-	lda <NTSC_MODE
-	; jsr FamiToneInit
-
-.if(FT_SFX_ENABLE)
-	ldx #<sounds_data
-	ldy #>sounds_data
-	jsr FamiToneSfxInit
-.endif
-
-	lda #$fd
-	sta <RAND_SEED
-	sta <RAND_SEED+1
-
 	lda #0
-	sta PPU_SCROLL
-	sta PPU_SCROLL
 	sta PPU_OAM_ADDR
 
 	jmp _main			;no parameters
@@ -244,24 +192,12 @@ detectNTSC:
 
 	.include "neslib.s"
 
-.segment "RODATA"
-
-music_data:
-;	.include "music.sinc"
-
-.if(FT_SFX_ENABLE)
-sounds_data:
-;	.include "sounds.sinc"
-.endif
-
-.segment "SAMPLES"
-
-.if(FT_DPCM_ENABLE)
-	.incbin "music_dpcm.bin"
-.endif
-
 .segment "VECTORS"
 
 	.word nmi	;$fffa vblank nmi
 	.word start	;$fffc reset
 	.word irq	;$fffe irq / brk
+
+.segment "CHARS"
+
+	.incbin "ascii.chr"
