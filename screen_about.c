@@ -1,6 +1,6 @@
 #include "keyboard.h"
-#include "build/chr.h"
 #include "screen.h"
+#include "neslib.h"
 
 #define xstr(s) str(s)
 #define str(s) #s
