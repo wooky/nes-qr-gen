@@ -160,7 +160,6 @@ void screen_qr (void)
     {
       break;
     }
-    ppu_wait_nmi();
   }
   
   ppu_off();

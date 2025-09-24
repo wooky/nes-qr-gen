@@ -2,7 +2,7 @@
 
 .segment "ZEROPAGE"
 
-IRQ_STAGE: .res 1
+NEXT_CHR_BANK: .res 1
 
 .segment "CODE"
 
@@ -11,67 +11,60 @@ irq:
   txa
   pha
 
+  ; Prepare to set first bank
+  lda #%00000000
+  sta $8000
+  ldx NEXT_CHR_BANK
+
+  ; Wait until a stupidly precise moment
+  nop
+  nop
+  nop
+  nop
+  nop
+  nop
+  nop
+  nop
+  nop
+  nop
+  nop
+  nop
+
+  ; Set first bank
+  stx $8001
+
+  ; Set second bank
+  lda #%00000001
+  sta $8000
+  inx
+  inx
+  stx $8001
+
   ; Acknowledge interrupt
   sta $e000
 
-  ; Bootleg jump table
-  ldx IRQ_STAGE
-  beq @stage0
-  dex
-  beq @stage1
-
-@stage2: ; Render chunk 3
-  ; Set up correct banks
-  ldx #%00000000
-  stx $8000
-  stx IRQ_STAGE
-  lda #$48
-  sta $8001
-  ldx #%00000001
-  stx $8000
-  lda #$4a
-  sta $8001
-
-  ; Do not restart re-enable interrupts for this frame
-
-  jmp @done
-
-@stage0: ; Render chunk 1
-  ; Set up correct banks
-  stx $8000
-  lda #$40
-  sta $8001
-  ldx #%00000001
-  stx $8000
-  stx IRQ_STAGE
-  lda #$42
-  sta $8001
+  ; Check if we just handled the 3rd chunk
+  txa
+  cmp #$4a
+  beq @lastChunk
 
   ; Set IRQ latch and re-enable interrupts
   lda #87 ; 11 tiles per chunk * 8 rows per tile - 1
   sta $c000
   sta $e001
 
+  ; Setup next bank
+  inx
+  inx
   jmp @done
 
-@stage1: ; Render chunk 2
-  ; Set up correct banks
-  stx $8000
-  lda #$44
-  sta $8001
-  ldx #%00000001
-  stx $8000
-  lda #$46
-  sta $8001
-
-  ; Set IRQ latch and re-enable interrupts
-  lda #87 ; 11 tiles per chunk * 8 rows per tile - 1
-  sta $c000
-  sta $e001
-  lda #2
-  sta IRQ_STAGE
+@lastChunk:
+  ; Reset next bank to the first bank
+  ldx #$40
 
 @done:
+  stx NEXT_CHR_BANK
+
   pla
   tax
   pla
@@ -79,8 +72,8 @@ irq:
   rti
 
 _irq_enable:
-  lda #0
-  sta IRQ_STAGE
+  lda #$40
+  sta NEXT_CHR_BANK
   lda #7 ; trust me bro
   sta IRQ_LATCH
   cli
