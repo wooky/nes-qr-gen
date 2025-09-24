@@ -149,10 +149,11 @@ void screen_qr (void)
     _draw_chunk();
     vram_adr(NTADR_A(LEFT_OF_NAMETABLE, TOP_OF_NAMETABLE + ROWS_PER_CHUNK * 2));
     vram_write(qr_chunk_top_nametable, sizeof(qr_chunk_top_nametable));
+
+    irq_enable();
   }
   
   ppu_on_all();
-  irq_enable();
   while (1)
   {
     keyboard_poll();
